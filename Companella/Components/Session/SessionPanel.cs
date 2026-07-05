@@ -1,3 +1,6 @@
+using Companella.Components.Layout;
+using Companella.Components.Misc;
+using Companella.Components.Settings;
 using Companella.Models.Session;
 using Companella.Services.Beatmap;
 using Companella.Services.Common;
@@ -29,14 +32,14 @@ public partial class SessionPanel : CompositeDrawable
 	[Resolved] private ReplayFileWatcherService ReplayWatcherService { get; set; } = null!;
 
 	private SessionModeToggle _modeToggle = null!;
-	private SessionToggleButton _toggleButton = null!;
+	private StyledButton _toggleButton = null!;
 	private SpriteText _statsText = null!;
 	private SpriteText _durationText = null!;
 	private SessionActivityHeatmap _activityHeatmap = null!;
 	private SessionDropdown _sessionDropdown = null!;
-	private FindReplaysButton _findReplaysButton = null!;
+	private StyledButton _findReplaysButton = null!;
 	private FillFlowContainer _playsListContainer = null!;
-	private CapturedScrollContainer _scrollContainer = null!;
+	private ChainedScrollContainer _scrollContainer = null!;
 	private Container _liveControlsContainer = null!;
 	private Container _historyControlsContainer = null!;
 	private SpriteText _noPlaysText = null!;
@@ -67,38 +70,24 @@ public partial class SessionPanel : CompositeDrawable
 	[BackgroundDependencyLoader]
 	private void load()
 	{
-		InternalChildren = new Drawable[]
+		var content = new FillFlowContainer
 		{
-			new FillFlowContainer
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 10),
+			Children = new Drawable[]
 			{
-				RelativeSizeAxes = Axes.X,
-				AutoSizeAxes = Axes.Y,
-				Direction = FillDirection.Vertical,
-				Spacing = new Vector2(0, 10),
-				Children = new Drawable[]
+				new Container
 				{
-					// Header with title and mode toggle
-					new Container
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Child = _modeToggle = new SessionModeToggle
 					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Children = new Drawable[]
-						{
-							new SpriteText
-							{
-								Text = "Session",
-								Font = new FontUsage("", 19, "Bold"),
-								Colour = new Color4(180, 180, 180, 255),
-								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft
-							},
-							_modeToggle = new SessionModeToggle
-							{
-								Anchor = Anchor.CentreRight,
-								Origin = Anchor.CentreRight
-							}
-						}
-					},
+						Anchor = Anchor.CentreRight,
+						Origin = Anchor.CentreRight
+					}
+				},
 					// Live session controls
 					_liveControlsContainer = new Container
 					{
@@ -112,7 +101,7 @@ public partial class SessionPanel : CompositeDrawable
 							Spacing = new Vector2(12, 0),
 							Children = new Drawable[]
 							{
-								_toggleButton = new SessionToggleButton
+								_toggleButton = new StyledButton("Start Session")
 								{
 									Size = new Vector2(120, 36),
 									TooltipText = "Track your plays and view progress over time"
@@ -188,12 +177,13 @@ public partial class SessionPanel : CompositeDrawable
 												}
 											}
 										},
-										_findReplaysButton = new FindReplaysButton
+										_findReplaysButton = new StyledButton("Find Replays")
 										{
 											Width = 120,
 											Height = 28,
-											Margin = new MarginPadding
-												{ Top = 16 }, // Align with dropdown (skip label height)
+											ShowLoadingIndicator = true,
+											FontSize = 15,
+											Margin = new MarginPadding { Top = 16 },
 											Action = OnFindReplaysClicked
 										}
 									}
@@ -210,7 +200,7 @@ public partial class SessionPanel : CompositeDrawable
 						Margin = new MarginPadding { Top = 8 },
 						Children = new Drawable[]
 						{
-							_scrollContainer = new CapturedScrollContainer
+							_scrollContainer = new ChainedScrollContainer
 							{
 								RelativeSizeAxes = Axes.X,
 								Height = 400,
@@ -233,8 +223,12 @@ public partial class SessionPanel : CompositeDrawable
 						Alpha = 0
 					}
 				}
-			}
 		};
+
+		InternalChild = SettingsLayout.CreateSection(
+			"Session",
+			"Track live plays or browse session history",
+			content);
 
 		// Wire up events
 		_modeToggle.Current.BindTo(_currentMode);
@@ -512,7 +506,7 @@ public partial class SessionPanel : CompositeDrawable
 	/// </summary>
 	private void UpdateButtonState()
 	{
-		_toggleButton.SetTracking(TrackerService.IsTracking);
+		_toggleButton.SetTrackingState(TrackerService.IsTracking);
 	}
 
 	/// <summary>
@@ -726,172 +720,5 @@ public partial class ClickableContainer : Container
 	{
 		Action?.Invoke();
 		return true;
-	}
-}
-
-/// <summary>
-/// Button for finding replays with loading indicator.
-/// </summary>
-public partial class FindReplaysButton : CompositeDrawable
-{
-	private Box _background = null!;
-	private Box _hoverOverlay = null!;
-	private SpriteText _label = null!;
-	private SpriteText _progressText = null!;
-	private LoadingSpinner _spinner = null!;
-	private bool _isLoading;
-
-	private readonly Color4 _normalColor = new(80, 80, 90, 255);
-	private readonly Color4 _loadingColor = new(60, 60, 70, 255);
-
-	public Action? Action { get; set; }
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 4;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _normalColor
-			},
-			_hoverOverlay = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = Color4.White,
-				Alpha = 0
-			},
-			new FillFlowContainer
-			{
-				AutoSizeAxes = Axes.Both,
-				Direction = FillDirection.Horizontal,
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre,
-				Spacing = new Vector2(6, 0),
-				Children = new Drawable[]
-				{
-					_spinner = new LoadingSpinner
-					{
-						Size = new Vector2(14, 14),
-						Alpha = 0
-					},
-					_label = new SpriteText
-					{
-						Text = "Find Replays",
-						Font = new FontUsage("", 15, "Bold"),
-						Colour = Color4.White,
-						Anchor = Anchor.CentreLeft,
-						Origin = Anchor.CentreLeft
-					}
-				}
-			},
-			_progressText = new SpriteText
-			{
-				Text = "",
-				Font = new FontUsage("", 13),
-				Colour = new Color4(180, 180, 180, 255),
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre,
-				Alpha = 0
-			}
-		};
-	}
-
-	public void SetLoading(bool loading)
-	{
-		_isLoading = loading;
-
-		if (loading)
-		{
-			_background.FadeColour(_loadingColor, 100);
-			_spinner.FadeTo(1, 100);
-			_label.FadeTo(0, 100);
-			_progressText.FadeTo(0, 100);
-		}
-		else
-		{
-			_background.FadeColour(_normalColor, 100);
-			_spinner.FadeTo(0, 100);
-			_label.FadeTo(1, 100);
-		}
-	}
-
-	public void SetProgress(string text)
-	{
-		_progressText.Text = text;
-		if (!_isLoading && !string.IsNullOrEmpty(text)) _progressText.FadeTo(1, 100).Then().Delay(2000).FadeTo(0, 500);
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		if (!_isLoading)
-			_hoverOverlay.FadeTo(0.1f, 100);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_hoverOverlay.FadeTo(0, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		if (!_isLoading)
-		{
-			_hoverOverlay.FadeTo(0.2f, 50).Then().FadeTo(0.1f, 100);
-			Action?.Invoke();
-		}
-
-		return true;
-	}
-}
-
-/// <summary>
-/// Simple loading spinner.
-/// </summary>
-public partial class LoadingSpinner : CompositeDrawable
-{
-	private Box _dot = null!;
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		InternalChild = _dot = new Box
-		{
-			RelativeSizeAxes = Axes.Both,
-			Colour = new Color4(255, 102, 170, 255)
-		};
-
-		// Pulsing animation
-		_dot.Loop(d => d
-			.FadeTo(0.3f, 400)
-			.Then()
-			.FadeTo(1f, 400)
-		);
-	}
-}
-
-/// <summary>
-/// Scroll container that captures scroll events but passes through at boundaries.
-/// </summary>
-public partial class CapturedScrollContainer : BasicScrollContainer
-{
-	protected override bool OnScroll(ScrollEvent e)
-	{
-		// Check if we're at a boundary and scrolling in that direction
-		var scrollDelta = e.ScrollDelta.Y;
-		var atTop = Current <= 0;
-		var atBottom = Current >= ScrollableExtent;
-
-		// If at top and scrolling up, or at bottom and scrolling down, let parent handle it
-		if ((atTop && scrollDelta > 0) || (atBottom && scrollDelta < 0)) return false;
-
-		// Otherwise handle it ourselves
-		return base.OnScroll(e);
 	}
 }

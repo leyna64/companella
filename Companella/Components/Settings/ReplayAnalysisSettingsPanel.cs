@@ -1,14 +1,13 @@
-using System.Globalization;
+using Companella.Components.Misc;
 using Companella.Components.Session;
 using Companella.Services.Common;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
-using osu.Framework.Graphics.Shapes;
 using osu.Framework.Graphics.Sprites;
-using osu.Framework.Graphics.UserInterface;
 using osuTK;
 using osuTK.Graphics;
+using System.Globalization;
 
 namespace Companella.Components.Settings;
 
@@ -17,13 +16,19 @@ namespace Companella.Components.Settings;
 /// </summary>
 public partial class ReplayAnalysisSettingsPanel : CompositeDrawable
 {
+	private const int _defaultWidth = 800;
+	private const int _defaultHeight = 400;
+	private const int _defaultX = 100;
+	private const int _defaultY = 100;
+
 	[Resolved] private UserSettingsService SettingsService { get; set; } = null!;
 
 	private SettingsCheckbox _enabledCheckbox = null!;
-	private BasicTextBox _widthTextBox = null!;
-	private BasicTextBox _heightTextBox = null!;
-	private BasicTextBox _xTextBox = null!;
-	private BasicTextBox _yTextBox = null!;
+	private FillFlowContainer _optionsContainer = null!;
+	private SpriteText _widthValueText = null!;
+	private SpriteText _heightValueText = null!;
+	private SpriteText _xValueText = null!;
+	private SpriteText _yValueText = null!;
 
 	[BackgroundDependencyLoader]
 	private void load()
@@ -32,147 +37,130 @@ public partial class ReplayAnalysisSettingsPanel : CompositeDrawable
 		AutoSizeAxes = Axes.Y;
 
 		var settings = SettingsService.Settings;
+		var sizeOptions = SettingsStepperOptions.ForReplaySize();
+		var heightOptions = SettingsStepperOptions.ForReplayHeight();
+		var positionOptions = SettingsStepperOptions.ForReplayPosition();
 
-		InternalChildren = new Drawable[]
+		var widthRow = SettingsLayout.CreateStepperRow(
+			"Width", () => SettingsService.Settings.ReplayAnalysisWidth, SetWidth, out _widthValueText, sizeOptions);
+		var heightRow = SettingsLayout.CreateStepperRow(
+			"Height", () => SettingsService.Settings.ReplayAnalysisHeight, SetHeight, out _heightValueText, heightOptions);
+		var xRow = SettingsLayout.CreateStepperRow(
+			"X", () => SettingsService.Settings.ReplayAnalysisX, SetX, out _xValueText, positionOptions);
+		var yRow = SettingsLayout.CreateStepperRow(
+			"Y", () => SettingsService.Settings.ReplayAnalysisY, SetY, out _yValueText, positionOptions);
+
+		var insetContent = new FillFlowContainer
 		{
-			new FillFlowContainer
-			{
-				RelativeSizeAxes = Axes.X,
-				AutoSizeAxes = Axes.Y,
-				Direction = FillDirection.Vertical,
-				Spacing = new Vector2(0, 8),
-				Children = new Drawable[]
-				{
-					new SpriteText
-					{
-						Text = "Replay Analysis Window:",
-						Font = new FontUsage("", 16),
-						Colour = new Color4(200, 200, 200, 255)
-					},
-					_enabledCheckbox = new SettingsCheckbox
-					{
-						LabelText = "Show replay analysis on results screen",
-						IsChecked = settings.ReplayAnalysisEnabled,
-						TooltipText = "Show timing deviation chart after completing maps"
-					},
-					new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Horizontal,
-						Spacing = new Vector2(12, 0),
-						Children = new Drawable[]
-						{
-							CreateLabeledInput("Width:", settings.ReplayAnalysisWidth.ToString(CultureInfo.InvariantCulture), out _widthTextBox,
-								70),
-							CreateLabeledInput("Height:", settings.ReplayAnalysisHeight.ToString(CultureInfo.InvariantCulture), out _heightTextBox,
-								70)
-						}
-					},
-					new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Horizontal,
-						Spacing = new Vector2(12, 0),
-						Children = new Drawable[]
-						{
-							CreateLabeledInput("X:", settings.ReplayAnalysisX.ToString(CultureInfo.InvariantCulture), out _xTextBox, 70),
-							CreateLabeledInput("Y:", settings.ReplayAnalysisY.ToString(CultureInfo.InvariantCulture), out _yTextBox, 70)
-						}
-					},
-					new SpriteText
-					{
-						Text = "Default size: 800x400 (8:4 aspect ratio)",
-						Font = new FontUsage("", 12),
-						Colour = new Color4(120, 120, 120, 255)
-					}
-				}
-			}
-		};
-
-		// Subscribe to events - use value change for immediate feedback
-		_enabledCheckbox.CheckedChanged += OnEnabledChanged;
-		_widthTextBox.Current.BindValueChanged(_ => OnSizeChanged());
-		_heightTextBox.Current.BindValueChanged(_ => OnSizeChanged());
-		_xTextBox.Current.BindValueChanged(_ => OnPositionChanged());
-		_yTextBox.Current.BindValueChanged(_ => OnPositionChanged());
-	}
-
-	private static FillFlowContainer CreateLabeledInput(string label, string value, out BasicTextBox textBox, float inputWidth)
-	{
-		textBox = null!;
-
-		var container = new FillFlowContainer
-		{
-			AutoSizeAxes = Axes.Both,
-			Direction = FillDirection.Horizontal,
-			Spacing = new Vector2(4, 0),
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Padding = new MarginPadding(12),
+			Spacing = new Vector2(0, 10),
 			Children = new Drawable[]
 			{
-				new SpriteText
+				SettingsLayout.CreateHint("Hold Shift for larger adjustment steps."),
+				SettingsLayout.CreateSubHeading("Size"),
+				widthRow,
+				heightRow,
+				SettingsLayout.CreateSubHeading("Position"),
+				xRow,
+				yRow
+			}
+		};
+
+		var insetSection = StyledDialog.CreateInsetSection();
+		insetSection.Child = insetContent;
+
+		_optionsContainer = new FillFlowContainer
+		{
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 10),
+			Children = new Drawable[]
+			{
+				insetSection,
+				new StyledButton("Reset", StyledButtonAppearance.Muted)
 				{
-					Text = label,
-					Font = new FontUsage("", 14),
-					Colour = new Color4(150, 150, 150, 255),
-					Anchor = Anchor.CentreLeft,
-					Origin = Anchor.CentreLeft
-				},
-				new Container
-				{
-					Width = inputWidth,
+					Width = 88,
 					Height = 28,
-					Masking = true,
-					CornerRadius = 4,
-					Children = new Drawable[]
-					{
-						new Box
-						{
-							RelativeSizeAxes = Axes.Both,
-							Colour = new Color4(35, 35, 40, 255)
-						},
-						textBox = new BasicTextBox
-						{
-							RelativeSizeAxes = Axes.Both,
-							Text = value,
-							CommitOnFocusLost = true
-						}
-					}
+					Action = OnResetClicked
 				}
 			}
 		};
 
-		return container;
+		var content = new FillFlowContainer
+		{
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 10),
+			Children = new Drawable[]
+			{
+				_enabledCheckbox = new SettingsCheckbox
+				{
+					LabelText = "Show replay analysis on results screen",
+					IsChecked = settings.ReplayAnalysisEnabled,
+					TooltipText = "Show timing deviation chart after completing maps"
+				},
+				_optionsContainer
+			}
+		};
+
+		InternalChild = new SettingsSection("Replay Analysis", "Timing deviation overlay shown after plays", content);
+
+		_enabledCheckbox.CheckedChanged += OnEnabledChanged;
+		UpdateOptionsVisibility(settings.ReplayAnalysisEnabled);
+	}
+
+	private void SetWidth(int value)
+	{
+		SettingsService.Settings.ReplayAnalysisWidth = value;
+		SaveSettings();
+	}
+
+	private void SetHeight(int value)
+	{
+		SettingsService.Settings.ReplayAnalysisHeight = value;
+		SaveSettings();
+	}
+
+	private void SetX(int value)
+	{
+		SettingsService.Settings.ReplayAnalysisX = value;
+		SaveSettings();
+	}
+
+	private void SetY(int value)
+	{
+		SettingsService.Settings.ReplayAnalysisY = value;
+		SaveSettings();
 	}
 
 	private void OnEnabledChanged(bool isChecked)
 	{
 		SettingsService.Settings.ReplayAnalysisEnabled = isChecked;
+		UpdateOptionsVisibility(isChecked);
 		SaveSettings();
 	}
 
-	private void OnSizeChanged()
-	{
-		if (int.TryParse(_widthTextBox.Text, out var width) && width > 100)
-			SettingsService.Settings.ReplayAnalysisWidth = width;
+	private void UpdateOptionsVisibility(bool enabled) => _optionsContainer.Alpha = enabled ? 1f : 0.35f;
 
-		if (int.TryParse(_heightTextBox.Text, out var height) && height > 50)
-			SettingsService.Settings.ReplayAnalysisHeight = height;
+	private void OnResetClicked()
+	{
+		SettingsService.Settings.ReplayAnalysisWidth = _defaultWidth;
+		SettingsService.Settings.ReplayAnalysisHeight = _defaultHeight;
+		SettingsService.Settings.ReplayAnalysisX = _defaultX;
+		SettingsService.Settings.ReplayAnalysisY = _defaultY;
+
+		_widthValueText.Text = _defaultWidth.ToString(CultureInfo.InvariantCulture);
+		_heightValueText.Text = _defaultHeight.ToString(CultureInfo.InvariantCulture);
+		_xValueText.Text = _defaultX.ToString(CultureInfo.InvariantCulture);
+		_yValueText.Text = _defaultY.ToString(CultureInfo.InvariantCulture);
 
 		SaveSettings();
 	}
 
-	private void OnPositionChanged()
-	{
-		if (int.TryParse(_xTextBox.Text, out var x)) SettingsService.Settings.ReplayAnalysisX = x;
-
-		if (int.TryParse(_yTextBox.Text, out var y)) SettingsService.Settings.ReplayAnalysisY = y;
-
-		SaveSettings();
-	}
-
-	private void SaveSettings()
-	{
-		Task.Run(async () => await SettingsService.SaveAsync());
-	}
+	private void SaveSettings() => Task.Run(async () => await SettingsService.SaveAsync());
 }

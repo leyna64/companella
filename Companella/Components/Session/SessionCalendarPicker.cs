@@ -1,4 +1,5 @@
 using System.Globalization;
+using Companella.Components.Misc;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Extensions.Color4Extensions;
@@ -73,10 +74,15 @@ public partial class SessionCalendarPicker : CompositeDrawable
 						Height = 24,
 						Children = new Drawable[]
 						{
-							new CompactNavButton("<")
+							new StyledButton("<", StyledButtonAppearance.Custom)
 							{
 								Anchor = Anchor.CentreLeft,
 								Origin = Anchor.CentreLeft,
+								Size = new Vector2(22, 22),
+								FontSize = 14,
+								ShowAccentBar = false,
+								CustomNormalBg = new Color4(50, 50, 55, 0),
+								CustomHoverBg = new Color4(50, 50, 55, 255),
 								Action = () => NavigateMonth(-1)
 							},
 							_monthYearText = new SpriteText
@@ -86,10 +92,15 @@ public partial class SessionCalendarPicker : CompositeDrawable
 								Font = new FontUsage("", 13, "Bold"),
 								Colour = new Color4(220, 220, 220, 255)
 							},
-							new CompactNavButton(">")
+							new StyledButton(">", StyledButtonAppearance.Custom)
 							{
 								Anchor = Anchor.CentreRight,
 								Origin = Anchor.CentreRight,
+								Size = new Vector2(22, 22),
+								FontSize = 14,
+								ShowAccentBar = false,
+								CustomNormalBg = new Color4(50, 50, 55, 0),
+								CustomHoverBg = new Color4(50, 50, 55, 255),
 								Action = () => NavigateMonth(1)
 							}
 						}
@@ -207,67 +218,6 @@ public partial class SessionCalendarPicker : CompositeDrawable
 			SelectedDate.Value = date;
 
 		RefreshCalendar();
-	}
-}
-
-/// <summary>
-/// Compact navigation button for the calendar.
-/// </summary>
-public partial class CompactNavButton : CompositeDrawable
-{
-	private Box _background = null!;
-	private readonly string _text;
-
-	public Action? Action { get; set; }
-
-	public CompactNavButton(string text)
-	{
-		_text = text;
-		Size = new Vector2(22, 22);
-	}
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 3;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = new Color4(50, 50, 55, 255),
-				Alpha = 0
-			},
-			new SpriteText
-			{
-				Text = _text,
-				Font = new FontUsage("", 14, "Bold"),
-				Colour = new Color4(150, 150, 150, 255),
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre
-			}
-		};
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		_background.FadeTo(1, 80, Easing.OutQuint);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_background.FadeTo(0, 120, Easing.OutQuint);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		_background.FlashColour(new Color4(80, 80, 90, 255), 150, Easing.OutQuint);
-		Action?.Invoke();
-		return true;
 	}
 }
 

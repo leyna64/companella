@@ -1,3 +1,4 @@
+using Companella.Components.Layout;
 using Companella.Models.Beatmap;
 using Companella.Models.Difficulty;
 using osu.Framework.Allocation;
@@ -140,7 +141,7 @@ public partial class TrainingPatternSelector : CompositeDrawable
 						Anchor = Anchor.Centre,
 						Origin = Anchor.Centre
 					},
-					new BasicScrollContainer
+					new ChainedScrollContainer
 					{
 						RelativeSizeAxes = Axes.Both,
 						Padding = new MarginPadding { Top = 28 },

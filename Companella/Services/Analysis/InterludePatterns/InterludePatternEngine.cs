@@ -151,7 +151,7 @@ public static class InterludePatternEngine
 		return (direction, isRoll);
 	}
 
-	private static float[] CalculateDensity(IReadOnlyList<InterludeRowInfo> rows, int keyCount)
+	private static float[] CalculateDensity(List<InterludeRowInfo> rows, int keyCount)
 	{
 		var columnDensities = new float[keyCount];
 		var columnSince = Enumerable.Repeat(float.NegativeInfinity, keyCount).ToArray();
@@ -179,7 +179,7 @@ public static class InterludePatternEngine
 	}
 
 	private static List<InterludeFoundPattern> FindPatterns(
-		IReadOnlyList<InterludeRowInfo> rows,
+		List<InterludeRowInfo> rows,
 		InterludeSpecificPatterns specificPatterns,
 		float lastNoteTime)
 	{
@@ -202,8 +202,8 @@ public static class InterludePatternEngine
 
 	private static void TryAddPattern(
 		List<InterludeFoundPattern> results,
-		IReadOnlyList<InterludeRowInfo> remaining,
-		IReadOnlyList<(string Name, InterludePatternRecogniser Recogniser)> specificRecognisers,
+		List<InterludeRowInfo> remaining,
+		List<(string Name, InterludePatternRecogniser Recogniser)> specificRecognisers,
 		InterludeCorePattern corePattern,
 		InterludeSpecificPatterns specificPatterns,
 		float lastNoteTime)
@@ -240,8 +240,8 @@ public static class InterludePatternEngine
 
 	private static void TryAddJackPattern(
 		List<InterludeFoundPattern> results,
-		IReadOnlyList<InterludeRowInfo> remaining,
-		IReadOnlyList<(string Name, InterludePatternRecogniser Recogniser)> jackRecognisers,
+		List<InterludeRowInfo> remaining,
+		List<(string Name, InterludePatternRecogniser Recogniser)> jackRecognisers,
 		float lastNoteTime)
 	{
 		var coreLength = InterludePatternRecognisers.Core.Jacks(remaining);
@@ -269,8 +269,8 @@ public static class InterludePatternEngine
 
 	private static (int Length, string? SpecificType) ResolveSpecificMatch(
 		int coreLength,
-		IReadOnlyList<(string Name, InterludePatternRecogniser Recogniser)> recognisers,
-		IReadOnlyList<InterludeRowInfo> remaining)
+		List<(string Name, InterludePatternRecogniser Recogniser)> recognisers,
+		List<InterludeRowInfo> remaining)
 	{
 		foreach (var (name, recogniser) in recognisers)
 		{
@@ -302,7 +302,7 @@ public static class InterludePatternEngine
 		public int Value => Bpm ?? 0;
 	}
 
-	private static List<InterludePatternCluster> ClusterPatterns(IReadOnlyList<InterludeFoundPattern> patterns)
+	private static List<InterludePatternCluster> ClusterPatterns(List<InterludeFoundPattern> patterns)
 	{
 		var nonMixedClusters = new List<ClusterBuilder>();
 		var mixedClusters = new Dictionary<InterludeCorePattern, ClusterBuilder>();
@@ -389,7 +389,7 @@ public static class InterludePatternEngine
 			.ToList();
 	}
 
-	private static List<InterludePatternCluster> PruneClusters(IReadOnlyList<InterludePatternCluster> clusters)
+	private static List<InterludePatternCluster> PruneClusters(List<InterludePatternCluster> clusters)
 	{
 		bool CanBePruned(InterludePatternCluster cluster) =>
 			clusters.Any(other =>
@@ -409,7 +409,7 @@ public static class InterludePatternEngine
 		return pruned;
 	}
 
-	private static float PatternAmount(IReadOnlyList<(float Start, float End)> intervals)
+	private static float PatternAmount(List<(float Start, float End)> intervals)
 	{
 		if (intervals.Count == 0)
 			return 0;
@@ -448,7 +448,7 @@ public static class InterludePatternEngine
 
 	private static string ResolveDisplayName(
 		InterludeCorePattern pattern,
-		IReadOnlyList<(string Name, float Fraction)> specificTypes)
+		List<(string Name, float Fraction)> specificTypes)
 	{
 		if (specificTypes.Count > 0 && specificTypes[0].Fraction > 0.4f)
 			return specificTypes[0].Name;
@@ -462,7 +462,7 @@ public static class InterludePatternEngine
 		return pattern.ToString();
 	}
 
-	private static string CategoriseChart(IReadOnlyList<InterludePatternCluster> clusters, float svAmountMs)
+	private static string CategoriseChart(List<InterludePatternCluster> clusters, float svAmountMs)
 	{
 		if (clusters.Count == 0)
 			return svAmountMs >= _svAmountThreshold ? "SV" : "Uncategorised";
@@ -479,7 +479,7 @@ public static class InterludePatternEngine
 		var isTech = cluster1.Mixed;
 		var isSv = svAmountMs >= _svAmountThreshold;
 
-		var name = ResolveDisplayName(cluster1.Pattern, cluster1.SpecificTypes);
+		var name = ResolveDisplayName(cluster1.Pattern, cluster1.SpecificTypes.ToList());
 
 		return $"{name}{(isHybrid ? " Hybrid" : "")}{(isTech ? " Tech" : "")}{(isSv ? " + SV" : "")}";
 	}

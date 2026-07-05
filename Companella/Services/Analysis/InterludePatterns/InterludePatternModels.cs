@@ -86,11 +86,11 @@ public sealed class InterludePatternReport
 	public int TotalRows { get; init; }
 }
 
-public delegate int InterludePatternRecogniser(IReadOnlyList<InterludeRowInfo> rows);
+public delegate int InterludePatternRecogniser(List<InterludeRowInfo> rows);
 
 public sealed class InterludeSpecificPatterns
 {
-	public required IReadOnlyList<(string Name, InterludePatternRecogniser Recogniser)> Stream { get; init; }
-	public required IReadOnlyList<(string Name, InterludePatternRecogniser Recogniser)> Chordstream { get; init; }
-	public required IReadOnlyList<(string Name, InterludePatternRecogniser Recogniser)> Jack { get; init; }
+	public required List<(string Name, InterludePatternRecogniser Recogniser)> Stream { get; init; }
+	public required List<(string Name, InterludePatternRecogniser Recogniser)> Chordstream { get; init; }
+	public required List<(string Name, InterludePatternRecogniser Recogniser)> Jack { get; init; }
 }

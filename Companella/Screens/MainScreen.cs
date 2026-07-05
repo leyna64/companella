@@ -80,6 +80,7 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 	private OffsetInputPanel _offsetPanel = null!;
 	private BulkRateChangerPanel _bulkRateChangerPanel = null!;
 	private MarathonCreatorPanel _marathonCreatorPanel = null!;
+	private MapPackManagerPanel _mapPackManagerPanel = null!;
 
 	// Split tab containers for tutorial navigation
 	private SplitTabContainer _gameplaySplitContainer = null!;
@@ -562,10 +563,15 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 		_offsetPanel = new OffsetInputPanel();
 		_bulkRateChangerPanel = new BulkRateChangerPanel();
 		_marathonCreatorPanel = new MarathonCreatorPanel();
+		_mapPackManagerPanel = new MapPackManagerPanel();
 
 		// Wire up marathon creator events
 		_marathonCreatorPanel.CreateMarathonRequested += OnCreateMarathonRequested;
 		_marathonCreatorPanel.RecalculateMsdRequested += OnRecalculateMsdRequested;
+
+		// Wire up map pack manager events
+		_mapPackManagerPanel.BuildMapPackRequested += OnBuildMapPackRequested;
+		_mapPackManagerPanel.RecalculateMsdRequested += OnRecalculateMapPackMsdRequested;
 
 		// Combine BPM Analysis and Normalize SV into one panel
 		var timingToolsContent = new FillFlowContainer
@@ -573,7 +579,7 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 			RelativeSizeAxes = Axes.X,
 			AutoSizeAxes = Axes.Y,
 			Direction = FillDirection.Vertical,
-			Spacing = new Vector2(0, 10),
+			Spacing = new Vector2(0, 12),
 			Children = new Drawable[]
 			{
 				_functionPanel,
@@ -585,7 +591,8 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 		{
 			new SplitTabItem("Timing Tools", timingToolsContent),
 			new SplitTabItem("Bulk Rates", _bulkRateChangerPanel),
-			new SplitTabItem("Marathon", _marathonCreatorPanel)
+			new SplitTabItem("Marathon", _marathonCreatorPanel),
+			new SplitTabItem("MapPack Manager", _mapPackManagerPanel)
 		})
 		{
 			RelativeSizeAxes = Axes.Both
@@ -611,7 +618,7 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 		return new Container
 		{
 			RelativeSizeAxes = Axes.Both,
-			Child = new BasicScrollContainer
+			Child = new ChainedScrollContainer
 			{
 				RelativeSizeAxes = Axes.Both,
 				ClampExtension = 200,
@@ -621,91 +628,31 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 					RelativeSizeAxes = Axes.X,
 					AutoSizeAxes = Axes.Y,
 					Direction = FillDirection.Vertical,
-					Spacing = new Vector2(0, 16),
-					Padding = new MarginPadding { Top = 10, Bottom = 40 },
+					Spacing = new Vector2(0, 12),
+					Padding = new MarginPadding { Horizontal = 4, Top = 8, Bottom = 48 },
 					Children = new Drawable[]
 					{
-						// UI Scale settings
-						new UIScalePanel
-						{
-							RelativeSizeAxes = Axes.X
-						},
-						// Metadata display preference
-						new MetadataPreferencePanel
-						{
-							RelativeSizeAxes = Axes.X
-						},
-						// Overlay mode toggle
-						new OverlayModePanel
-						{
-							RelativeSizeAxes = Axes.X
-						},
-						new OsuDirectorySettingsPanel
-						{
-							RelativeSizeAxes = Axes.X
-						},
-						new FillFlowContainer
-						{
-							AutoSizeAxes = Axes.Y,
-							Direction = FillDirection.Horizontal,
-							Spacing = new Vector2(250, 0),
-							Padding = new MarginPadding { Top = 10, Bottom = 40 },
-							Children = new Drawable[]
-							{
-								// Overlay position offset
-								new OverlayPositionPanel
-								{
-									RelativeSizeAxes = Axes.X
-								},
-								// Replay analysis window settings
-								new ReplayAnalysisSettingsPanel
-								{
-									RelativeSizeAxes = Axes.X
-								}
-							}
-						},
-
-						// MinaCalc version selector
-						new MinaCalcVersionPanel
-						{
-							RelativeSizeAxes = Axes.X
-						},
-						new RiceDanCalculatorPanel
-						{
-							RelativeSizeAxes = Axes.X
-						},
-						// Map indexing controls
-						new MapIndexingPanel
-						{
-							RelativeSizeAxes = Axes.X
-						},
-						// Session auto-start settings
-						new SessionAutoStartPanel
-						{
-							RelativeSizeAxes = Axes.X
-						},
-						// Score migration from session copies
-						new ScoreMigrationPanel
-						{
-							RelativeSizeAxes = Axes.X
-						},
-						// Score import from scores.db as sessions
-						new ScoreImportPanel
-						{
-							RelativeSizeAxes = Axes.X
-						},
-						// Analytics/privacy settings
-						new AnalyticsSettingsPanel
-						{
-							RelativeSizeAxes = Axes.X
-						},
-						// Keybind configuration
-						new KeybindConfigPanel
-						{
-							RelativeSizeAxes = Axes.X
-						},
-						// Quick Setup button
-						_quickSetupPanel
+						_quickSetupPanel,
+						new SettingsGroupHeader("Appearance", "Visual preferences and scaling"),
+						new UIScalePanel { RelativeSizeAxes = Axes.X },
+						new MetadataPreferencePanel { RelativeSizeAxes = Axes.X },
+						new SettingsGroupHeader("Overlay", "Window attachment and positioning"),
+						new OverlayModePanel { RelativeSizeAxes = Axes.X },
+						new OverlayPositionPanel { RelativeSizeAxes = Axes.X },
+						new ReplayAnalysisSettingsPanel { RelativeSizeAxes = Axes.X },
+						new SettingsGroupHeader("osu! Integration", "Paths and game connection"),
+						new OsuDirectorySettingsPanel { RelativeSizeAxes = Axes.X },
+						new SettingsGroupHeader("Difficulty & Analysis", "Calculators and map indexing"),
+						new MinaCalcVersionPanel { RelativeSizeAxes = Axes.X },
+						new RiceDanCalculatorPanel { RelativeSizeAxes = Axes.X },
+						new MapIndexingPanel { RelativeSizeAxes = Axes.X },
+						new SettingsGroupHeader("Sessions & Data", "Tracking, imports, and migrations"),
+						new SessionAutoStartPanel { RelativeSizeAxes = Axes.X },
+						new ScoreMigrationPanel { RelativeSizeAxes = Axes.X },
+						new ScoreImportPanel { RelativeSizeAxes = Axes.X },
+						new SettingsGroupHeader("Privacy & Controls", "Analytics and shortcuts"),
+						new AnalyticsSettingsPanel { RelativeSizeAxes = Axes.X },
+						new KeybindConfigPanel { RelativeSizeAxes = Axes.X }
 					}
 				}
 			}
@@ -838,6 +785,8 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 			_bulkRateChangerPanel.SetEnabled(true);
 			_marathonCreatorPanel.SetCurrentBeatmap(_currentOsuFile);
 			_marathonCreatorPanel.SetEnabled(true);
+			_mapPackManagerPanel.SetCurrentBeatmap(_currentOsuFile);
+			_mapPackManagerPanel.SetEnabled(true);
 
 			// Get dominant BPM and pass to rate changer panel
 			var dominantBpm = GetDominantBpm(_currentOsuFile);
@@ -860,6 +809,8 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 			_bulkRateChangerPanel.SetEnabled(false);
 			_marathonCreatorPanel.SetCurrentBeatmap(null);
 			_marathonCreatorPanel.SetEnabled(false);
+			_mapPackManagerPanel.SetCurrentBeatmap(null);
+			_mapPackManagerPanel.SetEnabled(false);
 		}
 	}
 
@@ -1534,6 +1485,122 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 		}
 	}
 
+	private async void OnBuildMapPackRequested(MapPackDefinition definition)
+	{
+		if (definition.Entries.Count == 0)
+			return;
+
+		var mapPackService = new MapPackManagerService();
+		var needsFfmpeg = definition.Entries.Any(e => Math.Abs(e.Rate - 1.0) > 0.01);
+		if (needsFfmpeg)
+		{
+			_loadingOverlay.Show("Checking ffmpeg...");
+			var ffmpegAvailable = await mapPackService.CheckFfmpegAvailableAsync();
+			if (!ffmpegAvailable)
+			{
+				_loadingOverlay.Hide();
+				return;
+			}
+		}
+
+		var outputDir = ProcessDetector.GetSongsFolder();
+		if (string.IsNullOrEmpty(outputDir) || !Directory.Exists(outputDir))
+		{
+			_loadingOverlay.Hide();
+			return;
+		}
+
+		_loadingOverlay.Show($"Building map pack ({definition.Entries.Count} difficulties)...");
+		SetAllPanelsEnabled(false);
+
+		try
+		{
+			var result = await mapPackService.BuildMapPackAsync(
+				definition,
+				outputDir,
+				status => Schedule(() => { _loadingOverlay.UpdateStatus(status); }));
+
+			Schedule(() =>
+			{
+				if (result.Success && result.FirstOsuPath != null)
+				{
+					definition.LoadedFolderPath = result.OutputFolder;
+					definition.OutputFolderName = Path.GetFileName(result.OutputFolder ?? "") ?? definition.OutputFolderName;
+					definition.ResetOnlineIdsOnExport = false;
+					LoadBeatmap(result.FirstOsuPath);
+					_mapPackManagerPanel.LoadDefinition(definition);
+				}
+				else if (!string.IsNullOrEmpty(result.ErrorMessage))
+				{
+					Logger.Info($"[MapPack] Build failed: {result.ErrorMessage}");
+				}
+			});
+		}
+		catch (Exception)
+		{
+		}
+		finally
+		{
+			Schedule(() =>
+			{
+				_loadingOverlay.Hide();
+				SetAllPanelsEnabled(true);
+			});
+		}
+	}
+
+	private async void OnRecalculateMapPackMsdRequested(List<MapPackEntry> entries)
+	{
+		if (entries.Count == 0)
+			return;
+
+		if (!ToolPaths.MsdCalculatorExists)
+			return;
+
+		_loadingOverlay.Show($"Calculating MSD for {entries.Count} maps...");
+		SetAllPanelsEnabled(false);
+
+		try
+		{
+			var analyzer = new MsdAnalyzer(ToolPaths.MsdCalculator);
+
+			for (var i = 0; i < entries.Count; i++)
+			{
+				var entry = entries[i];
+				if (entry.SourceMissing || entry.OsuFile == null)
+					continue;
+
+				Schedule(() =>
+					_loadingOverlay.UpdateStatus(
+						$"Calculating MSD for [{entry.EffectiveVersion}] ({i + 1}/{entries.Count})..."));
+
+				try
+				{
+					var result = await analyzer.AnalyzeSingleRateAsync(entry.OsuFile.FilePath, (float)entry.Rate);
+					entry.MsdValues = result?.Scores;
+				}
+				catch (Exception ex)
+				{
+					Logger.Info($"[MSD] Failed to calculate MSD for {entry.SourceTitle}: {ex.Message}");
+					entry.MsdValues = null;
+				}
+			}
+
+			Schedule(() => { _mapPackManagerPanel.RefreshList(); });
+		}
+		catch (Exception)
+		{
+		}
+		finally
+		{
+			Schedule(() =>
+			{
+				_loadingOverlay.Hide();
+				SetAllPanelsEnabled(true);
+			});
+		}
+	}
+
 	private void SetAllPanelsEnabled(bool enabled)
 	{
 		_functionPanel.SetEnabled(enabled);
@@ -1542,6 +1609,7 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 		_modSelectionPanel.SetEnabled(enabled);
 		_bulkRateChangerPanel.SetEnabled(enabled);
 		_marathonCreatorPanel.SetEnabled(enabled);
+		_mapPackManagerPanel.SetEnabled(enabled);
 	}
 
 	protected override void Update()

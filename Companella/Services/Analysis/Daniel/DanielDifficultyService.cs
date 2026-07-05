@@ -50,7 +50,7 @@ public static class DanielDifficultyService
 		return Calculate(hitObjects, keyCount, rate);
 	}
 
-	private static DanielDifficultyResult CalculateFromNotes(IReadOnlyList<DanielNote> notes, int keyCount)
+	private static DanielDifficultyResult CalculateFromNotes(List<DanielNote> notes, int keyCount)
 	{
 		if (notes.Count == 0)
 			return DanielDifficultyResult.Invalid("Beatmap has no hit objects.");

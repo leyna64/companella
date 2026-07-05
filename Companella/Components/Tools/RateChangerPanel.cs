@@ -1,5 +1,7 @@
 using System.Globalization;
+using Companella.Components.Misc;
 using Companella.Components.Session;
+using Companella.Components.Settings;
 using Companella.Services.Tools;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
@@ -26,7 +28,7 @@ public partial class RateChangerPanel : CompositeDrawable
 	private StyledTextBox _rateTextBox = null!;
 	private StyledTextBox _targetBpmTextBox = null!;
 	private StyledTextBox _formatTextBox = null!;
-	private ModernButton _applyButton = null!;
+	private StyledButton _applyButton = null!;
 	private SpriteText _previewText = null!;
 	private SpriteText _currentBpmLabel = null!;
 	private FillFlowContainer _quickRateButtons = null!;
@@ -35,8 +37,8 @@ public partial class RateChangerPanel : CompositeDrawable
 	private BasicSliderBar<double> _hpSlider = null!;
 	private SpriteText _odValueText = null!;
 	private SpriteText _hpValueText = null!;
-	private LockButton _odLockButton = null!;
-	private LockButton _hpLockButton = null!;
+	private StyledButton _odLockButton = null!;
+	private StyledButton _hpLockButton = null!;
 
 	public event Action<double, string, bool, double, double>? ApplyRateClicked;
 	public event Action<string>? FormatChanged;
@@ -128,11 +130,14 @@ public partial class RateChangerPanel : CompositeDrawable
 									Origin = Anchor.CentreRight,
 									Margin = new MarginPadding { Right = 35 }
 								},
-								_odLockButton = new LockButton
+								_odLockButton = new StyledButton("U", StyledButtonAppearance.Toggle)
 								{
 									Size = new Vector2(24, 24),
 									Anchor = Anchor.CentreRight,
 									Origin = Anchor.CentreRight,
+									SelectedText = "L",
+									ToggleOnClick = true,
+									FontSize = 12,
 									TooltipText = "Lock OD value when changing maps"
 								}
 							}
@@ -182,11 +187,14 @@ public partial class RateChangerPanel : CompositeDrawable
 									Origin = Anchor.CentreRight,
 									Margin = new MarginPadding { Right = 35 }
 								},
-								_hpLockButton = new LockButton
+								_hpLockButton = new StyledButton("U", StyledButtonAppearance.Toggle)
 								{
 									Size = new Vector2(24, 24),
 									Anchor = Anchor.CentreRight,
 									Origin = Anchor.CentreRight,
+									SelectedText = "L",
+									ToggleOnClick = true,
+									FontSize = 12,
 									TooltipText = "Lock HP value when changing maps"
 								}
 							}
@@ -316,7 +324,7 @@ public partial class RateChangerPanel : CompositeDrawable
 						}
 					},
 					// Apply Button
-					_applyButton = new ModernButton("Create Rate-Changed Beatmap")
+					_applyButton = new StyledButton("Create Rate-Changed Beatmap")
 					{
 						RelativeSizeAxes = Axes.X,
 						Height = 40,
@@ -342,8 +350,8 @@ public partial class RateChangerPanel : CompositeDrawable
 		// OD/HP slider events
 		_odSlider.Current.ValueChanged += e => OnOdSliderChanged(e.NewValue);
 		_hpSlider.Current.ValueChanged += e => OnHpSliderChanged(e.NewValue);
-		_odLockButton.LockChanged += OnOdLockChanged;
-		_hpLockButton.LockChanged += OnHpLockChanged;
+		_odLockButton.SelectedChanged += OnOdLockChanged;
+		_hpLockButton.SelectedChanged += OnHpLockChanged;
 	}
 
 	private void OnPitchAdjustChanged(bool isChecked)
@@ -382,9 +390,14 @@ public partial class RateChangerPanel : CompositeDrawable
 		var buttons = new List<Drawable>();
 
 		foreach (var rate in rates)
-			buttons.Add(new QuickRateButton(rate, rate == 1.0, _accentColor)
+			buttons.Add(new StyledButton($"{rate:0.0#}x", StyledButtonAppearance.Toggle)
 			{
 				Size = new Vector2(42, 28),
+				Tag = rate,
+				Selected = Math.Abs(rate - 1.0) < 0.001,
+				FontSize = 12,
+				Bold = false,
+				AccentColor = _accentColor,
 				Action = () => SetRate(rate),
 				TooltipText = $"Create a {rate:0.0#}x speed version"
 			});
@@ -392,40 +405,8 @@ public partial class RateChangerPanel : CompositeDrawable
 		return buttons.ToArray();
 	}
 
-	private static Container CreateSection(string title, Drawable[] content)
-	{
-		return new Container
-		{
-			RelativeSizeAxes = Axes.X,
-			AutoSizeAxes = Axes.Y,
-			Children = new Drawable[]
-			{
-				new FillFlowContainer
-				{
-					RelativeSizeAxes = Axes.X,
-					AutoSizeAxes = Axes.Y,
-					Direction = FillDirection.Vertical,
-					Spacing = new Vector2(0, 6),
-					Children = new Drawable[]
-					{
-						new SpriteText
-						{
-							Text = title,
-							Font = new FontUsage("", 15, "Bold"),
-							Colour = new Color4(180, 180, 180, 255)
-						},
-						new FillFlowContainer
-						{
-							RelativeSizeAxes = Axes.X,
-							AutoSizeAxes = Axes.Y,
-							Direction = FillDirection.Vertical,
-							Children = content
-						}
-					}
-				}
-			}
-		};
-	}
+	private static SettingsSection CreateSection(string title, Drawable[] content) =>
+		SettingsLayout.CreateSection(title, content);
 
 	/// <summary>
 	/// Sets the rate value programmatically.
@@ -449,8 +430,8 @@ public partial class RateChangerPanel : CompositeDrawable
 	private void UpdateQuickRateButtonSelection(double selectedRate)
 	{
 		foreach (var child in _quickRateButtons.Children)
-			if (child is QuickRateButton button)
-				button.SetSelected(Math.Abs(button.Rate - selectedRate) < 0.001);
+			if (child is StyledButton button && button.Tag is double rate)
+				button.SetSelected(Math.Abs(rate - selectedRate) < 0.001);
 	}
 
 	private void OnRateTextCommit(TextBox sender, bool newText)
@@ -649,100 +630,6 @@ public partial class RateChangerPanel : CompositeDrawable
 }
 
 /// <summary>
-/// Quick rate selection button with selection state.
-/// </summary>
-public partial class QuickRateButton : CompositeDrawable, IHasTooltip
-{
-	public double Rate { get; }
-	public Action? Action { get; set; }
-
-	/// <summary>
-	/// Tooltip text displayed on hover.
-	/// </summary>
-	public LocalisableString TooltipText { get; set; }
-
-	private bool _isSelected;
-	private Box _background = null!;
-	private Box _hoverOverlay = null!;
-	private SpriteText _label = null!;
-	private readonly Color4 _accentColor;
-
-	private readonly Color4 _normalBg = new(45, 45, 50, 255);
-	private readonly Color4 _selectedBg = new(255, 102, 170, 255);
-	private readonly Color4 _hoverBg = new(60, 60, 65, 255);
-
-	public QuickRateButton(double rate, bool isSelected, Color4 accentColor)
-	{
-		Rate = rate;
-		_isSelected = isSelected;
-		_accentColor = accentColor;
-	}
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 4;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _isSelected ? _selectedBg : _normalBg
-			},
-			_hoverOverlay = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = Color4.White,
-				Alpha = 0
-			},
-			_label = new SpriteText
-			{
-				Text = $"{Rate:0.0#}x",
-				Font = new FontUsage("", 12, _isSelected ? "Bold" : ""),
-				Colour = _isSelected ? Color4.White : new Color4(180, 180, 180, 255),
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre
-			}
-		};
-	}
-
-	public void SetSelected(bool selected)
-	{
-		_isSelected = selected;
-		_background.FadeColour(_isSelected ? _selectedBg : _normalBg, 150);
-		_label.FadeColour(_isSelected ? Color4.White : new Color4(180, 180, 180, 255), 150);
-		_label.Font = new FontUsage("", 12, _isSelected ? "Bold" : "");
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		if (!_isSelected)
-		{
-			_hoverOverlay.FadeTo(0.1f, 100);
-			_background.FadeColour(_hoverBg, 100);
-		}
-
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_hoverOverlay.FadeTo(0, 100);
-		if (!_isSelected)
-			_background.FadeColour(_normalBg, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		Action?.Invoke();
-		return true;
-	}
-}
-
-/// <summary>
 /// Modern styled text box with clean appearance.
 /// </summary>
 public partial class StyledTextBox : BasicTextBox
@@ -775,188 +662,5 @@ public partial class StyledTextBox : BasicTextBox
 			Font = _unicodeFont,
 			Colour = Color4.White
 		};
-	}
-}
-
-/// <summary>
-/// Modern action button with clean styling.
-/// </summary>
-public partial class ModernButton : CompositeDrawable, IHasTooltip
-{
-	private readonly string _text;
-	private Box _background = null!;
-	private Box _hoverOverlay = null!;
-	private SpriteText _label = null!;
-	private bool _isEnabled = true;
-
-	private Color4 _enabledColor = new(255, 102, 170, 255);
-	private Color4 _disabledColor = new(60, 60, 65, 255);
-
-	/// <summary>
-	/// Tooltip text displayed on hover.
-	/// </summary>
-	public LocalisableString TooltipText { get; set; }
-
-	public event Action? Clicked;
-
-	/// <summary>
-	/// When set, invoked on Ctrl+click instead of <see cref="Clicked"/>.
-	/// </summary>
-	public event Action? CtrlClicked;
-
-	public bool Enabled
-	{
-		get => _isEnabled;
-		set
-		{
-			_isEnabled = value;
-			if (_background != null)
-			{
-				_background.FadeColour(_isEnabled ? _enabledColor : _disabledColor, 150);
-				_label.FadeColour(_isEnabled ? Color4.White : new Color4(100, 100, 100, 255), 150);
-			}
-		}
-	}
-
-	public ModernButton(string text, Color4? enabledColor = null, Color4? disabledColor = null)
-	{
-		_text = text;
-		_enabledColor = enabledColor ?? _enabledColor;
-		_disabledColor = disabledColor ?? _disabledColor;
-	}
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 6;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _isEnabled ? _enabledColor : _disabledColor
-			},
-			_hoverOverlay = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = Color4.White,
-				Alpha = 0
-			},
-			_label = new SpriteText
-			{
-				Text = _text,
-				Font = new FontUsage("", 17, "Bold"),
-				Colour = _isEnabled ? Color4.White : new Color4(100, 100, 100, 255),
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre
-			}
-		};
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		if (_isEnabled)
-			_hoverOverlay.FadeTo(0.15f, 100);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_hoverOverlay.FadeTo(0, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		if (_isEnabled)
-		{
-			if (e.ControlPressed && CtrlClicked != null)
-				CtrlClicked.Invoke();
-			else
-				Clicked?.Invoke();
-			_hoverOverlay.FadeTo(0.3f, 50).Then().FadeTo(0.15f, 100);
-		}
-
-		return true;
-	}
-}
-
-/// <summary>
-/// Lock button for OD/HP sliders.
-/// </summary>
-public partial class LockButton : CompositeDrawable, IHasTooltip
-{
-	public event Action<bool>? LockChanged;
-	public LocalisableString TooltipText { get; set; }
-
-	private bool _isLocked;
-	private Box _background = null!;
-	private SpriteText _icon = null!;
-
-	private readonly Color4 _unlockedColor = new(50, 50, 55, 255);
-	private readonly Color4 _lockedColor = new(255, 102, 170, 255);
-
-	public bool IsLocked
-	{
-		get => _isLocked;
-		set
-		{
-			if (_isLocked == value)
-				return;
-			_isLocked = value;
-			UpdateVisuals();
-			LockChanged?.Invoke(_isLocked);
-		}
-	}
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 4;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _unlockedColor
-			},
-			_icon = new SpriteText
-			{
-				Text = "U",
-				Font = new FontUsage("", 12, "Bold"),
-				Colour = new Color4(120, 120, 120, 255),
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre
-			}
-		};
-	}
-
-	private void UpdateVisuals()
-	{
-		_background.FadeColour(_isLocked ? _lockedColor : _unlockedColor, 150);
-		_icon.Text = _isLocked ? "L" : "U";
-		_icon.FadeColour(_isLocked ? Color4.White : new Color4(120, 120, 120, 255), 150);
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		_background.FadeColour(_isLocked ? _lockedColor.Lighten(0.1f) : new Color4(65, 65, 70, 255), 100);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_background.FadeColour(_isLocked ? _lockedColor : _unlockedColor, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		IsLocked = !IsLocked;
-		return true;
 	}
 }

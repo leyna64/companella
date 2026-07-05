@@ -1,3 +1,6 @@
+using Companella.Components.Layout;
+using Companella.Components.Misc;
+using Companella.Components.Settings;
 using Companella.Mods;
 using Companella.Services.Tools;
 using osu.Framework.Allocation;
@@ -24,13 +27,13 @@ public partial class ModSelectionPanel : CompositeDrawable
 
 	private FillFlowContainer _categoriesContainer = null!;
 	private SpriteText _selectedModName = null!;
-	private SpriteText _selectedModDescription = null!;
+	private TextFlowContainer _selectedModDescription = null!;
 	private FillFlowContainer _parametersContainer = null!;
-	private ModernButton _applyButton = null!;
-	private SpriteText _statusText = null!;
+	private StyledButton _applyButton = null!;
+	private TextFlowContainer _statusText = null!;
 
 	private IMod? _selectedMod;
-	private ModButton? _selectedButton;
+	private StyledButton? _selectedButton;
 	private bool _enabled;
 	private readonly List<ParameterSlider> _parameterSliders = new();
 
@@ -53,125 +56,85 @@ public partial class ModSelectionPanel : CompositeDrawable
 	[BackgroundDependencyLoader]
 	private void load()
 	{
-		InternalChildren = new Drawable[]
+		var modListSection = StyledDialog.CreateInsetSection(280);
+		modListSection.Child = new ChainedScrollContainer
 		{
-			new FillFlowContainer
+			RelativeSizeAxes = Axes.Both,
+			ClampExtension = 20,
+			ScrollbarVisible = true,
+			Child = _categoriesContainer = new FillFlowContainer
 			{
 				RelativeSizeAxes = Axes.X,
 				AutoSizeAxes = Axes.Y,
 				Direction = FillDirection.Vertical,
-				Spacing = new Vector2(0, 16),
-				Children = new Drawable[]
+				Spacing = new Vector2(0, 12),
+				Padding = new MarginPadding(12)
+			}
+		};
+
+		var content = new FillFlowContainer
+		{
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 12),
+			Children = new Drawable[]
+			{
+				modListSection,
+				new FillFlowContainer
 				{
-					// Header
-					new SpriteText
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Direction = FillDirection.Vertical,
+					Spacing = new Vector2(0, 4),
+					Children = new Drawable[]
 					{
-						Text = "Beatmap Mods",
-						Font = new FontUsage("", 20, "Bold"),
-						Colour = Color4.White
-					},
-					// Categories container (scrollable)
-					new Container
-					{
-						RelativeSizeAxes = Axes.X,
-						Height = 280,
-						Masking = true,
-						CornerRadius = 6,
-						Children = new Drawable[]
+						_selectedModName = new SpriteText
 						{
-							new Box
-							{
-								RelativeSizeAxes = Axes.Both,
-								Colour = new Color4(30, 30, 35, 255)
-							},
-							new BasicScrollContainer
-							{
-								RelativeSizeAxes = Axes.Both,
-								ClampExtension = 20,
-								ScrollbarVisible = true,
-								Child = _categoriesContainer = new FillFlowContainer
-								{
-									RelativeSizeAxes = Axes.X,
-									AutoSizeAxes = Axes.Y,
-									Direction = FillDirection.Vertical,
-									Spacing = new Vector2(0, 12),
-									Padding = new MarginPadding(12)
-								}
-							}
-						}
-					},
-					// Selected mod info
-					new Container
+							Text = "No mod selected",
+							Font = new FontUsage("", 16, "Bold"),
+							Colour = StyledButton.Theme.Accent
+						},
+						_selectedModDescription = SettingsLayout.CreateWrappingText(
+							"Select a mod from the list above to apply it.",
+							14,
+							StyledButton.Theme.DisabledLabel)
+					}
+				},
+				_parametersContainer = new FillFlowContainer
+				{
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Direction = FillDirection.Vertical,
+					Spacing = new Vector2(0, 8)
+				},
+				new FillFlowContainer
+				{
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Direction = FillDirection.Vertical,
+					Spacing = new Vector2(0, 8),
+					Children = new Drawable[]
 					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Children = new Drawable[]
+						_applyButton = new StyledButton("Apply Mod")
 						{
-							new FillFlowContainer
-							{
-								RelativeSizeAxes = Axes.X,
-								AutoSizeAxes = Axes.Y,
-								Direction = FillDirection.Vertical,
-								Spacing = new Vector2(0, 4),
-								Children = new Drawable[]
-								{
-									_selectedModName = new SpriteText
-									{
-										Text = "No mod selected",
-										Font = new FontUsage("", 16, "Bold"),
-										Colour = _accentColor
-									},
-									_selectedModDescription = new SpriteText
-									{
-										Text = "Select a mod from the list above to apply it.",
-										Font = new FontUsage("", 14),
-										Colour = _descriptionColor
-									}
-								}
-							}
-						}
-					},
-					// Parameter sliders container
-					_parametersContainer = new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Vertical,
-						Spacing = new Vector2(0, 8),
-						Padding = new MarginPadding { Left = 4, Right = 4 }
-					},
-					// Apply button and status
-					new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Horizontal,
-						Spacing = new Vector2(12, 0),
-						Children = new Drawable[]
-						{
-							_applyButton = new ModernButton("Apply Mod", _accentColor)
-							{
-								Size = new Vector2(120, 36),
-								Enabled = false,
-								TooltipText = "Apply the selected mod to create a new difficulty"
-							},
-							_statusText = new SpriteText
-							{
-								Text = "",
-								Font = new FontUsage("", 14),
-								Colour = _descriptionColor,
-								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft
-							}
-						}
+							RelativeSizeAxes = Axes.X,
+							Height = 36,
+							Enabled = false,
+							TooltipText = "Apply the selected mod to create a new difficulty"
+						},
+						_statusText = SettingsLayout.CreateStatusText(14, StyledButton.Theme.DisabledLabel)
 					}
 				}
 			}
 		};
 
-		_applyButton.Clicked += OnApplyClicked;
+		InternalChild = SettingsLayout.CreateSection(
+			"Beatmap Mods",
+			"Select and apply mods to the loaded beatmap",
+			content);
 
-		// Populate mods after dependency injection
+		_applyButton.Clicked += OnApplyClicked;
 		Schedule(PopulateMods);
 	}
 
@@ -221,8 +184,16 @@ public partial class ModSelectionPanel : CompositeDrawable
 
 			foreach (var mod in category.OrderBy(m => m.Name))
 			{
-				var button = new ModButton(mod, _accentColor);
-				button.Selected += OnModSelected;
+				var button = new StyledButton(mod.Name + " (+" + mod.Icon + ")", StyledButtonAppearance.Bordered)
+				{
+					Size = new Vector2(140, 36),
+					FontSize = 23,
+					Bold = false,
+					ShowAccentBar = false,
+					AccentColor = _accentColor,
+					Tag = mod
+				};
+				button.Clicked += () => OnModSelected(button, mod);
 				modFlow.Add(button);
 			}
 
@@ -238,7 +209,7 @@ public partial class ModSelectionPanel : CompositeDrawable
 		PopulateMods();
 	}
 
-	private void OnModSelected(ModButton button, IMod mod)
+	private void OnModSelected(StyledButton button, IMod mod)
 	{
 		// Deselect previous button
 		_selectedButton?.SetSelected(false);
@@ -319,201 +290,5 @@ public partial class ModSelectionPanel : CompositeDrawable
 		// Clear parameter sliders
 		_parametersContainer.Clear();
 		_parameterSliders.Clear();
-	}
-
-	/// <summary>
-	/// Button representing a single mod.
-	/// </summary>
-	private partial class ModButton : CompositeDrawable
-	{
-		private readonly IMod _mod;
-		private readonly Color4 _accentColor;
-		private bool _isSelected;
-
-		private Box _background = null!;
-		private Container _border = null!;
-		private SpriteText _nameText = null!;
-
-		public event Action<ModButton, IMod>? Selected;
-
-		public ModButton(IMod mod, Color4 accentColor)
-		{
-			_mod = mod;
-			_accentColor = accentColor;
-
-			Size = new Vector2(140, 36);
-			Masking = true;
-			CornerRadius = 4;
-		}
-
-		[BackgroundDependencyLoader]
-		private void load()
-		{
-			InternalChildren = new Drawable[]
-			{
-				_background = new Box
-				{
-					RelativeSizeAxes = Axes.Both,
-					Colour = new Color4(45, 45, 50, 255)
-				},
-				_border = new Container
-				{
-					RelativeSizeAxes = Axes.Both,
-					Masking = true,
-					CornerRadius = 4,
-					BorderThickness = 2,
-					BorderColour = new Color4(60, 60, 65, 255),
-					Child = new Box
-					{
-						RelativeSizeAxes = Axes.Both,
-						Alpha = 0,
-						AlwaysPresent = true
-					}
-				},
-				_nameText = new SpriteText
-				{
-					Text = _mod.Name + " (+" + _mod.Icon + ")",
-					Font = new FontUsage("", 23),
-					Colour = Color4.White,
-					Anchor = Anchor.Centre,
-					Origin = Anchor.Centre
-				}
-			};
-		}
-
-		public void SetSelected(bool selected)
-		{
-			_isSelected = selected;
-
-			if (selected)
-			{
-				_background.FadeColour(_accentColor.Opacity(0.3f), 100);
-				_border.BorderColour = _accentColor;
-				_nameText.FadeColour(_accentColor, 100);
-			}
-			else
-			{
-				_background.FadeColour(new Color4(45, 45, 50, 255), 100);
-				_border.BorderColour = new Color4(60, 60, 65, 255);
-				_nameText.FadeColour(Color4.White, 100);
-			}
-		}
-
-		protected override bool OnHover(HoverEvent e)
-		{
-			if (!_isSelected)
-			{
-				_background.FadeColour(new Color4(55, 55, 60, 255), 100);
-				_border.BorderColour = new Color4(80, 80, 85, 255);
-			}
-
-			return base.OnHover(e);
-		}
-
-		protected override void OnHoverLost(HoverLostEvent e)
-		{
-			if (!_isSelected)
-			{
-				_background.FadeColour(new Color4(45, 45, 50, 255), 100);
-				_border.BorderColour = new Color4(60, 60, 65, 255);
-			}
-
-			base.OnHoverLost(e);
-		}
-
-		protected override bool OnClick(ClickEvent e)
-		{
-			Selected?.Invoke(this, _mod);
-			return true;
-		}
-	}
-
-	/// <summary>
-	/// Modern styled button.
-	/// </summary>
-	private partial class ModernButton : CompositeDrawable, IHasTooltip
-	{
-		private readonly string _text;
-		private readonly Color4 _color;
-		private bool _enabled = true;
-
-		private Box _background = null!;
-		private SpriteText _label = null!;
-
-		/// <summary>
-		/// Tooltip text displayed on hover.
-		/// </summary>
-		public LocalisableString TooltipText { get; set; }
-
-		public event Action? Clicked;
-
-		public bool Enabled
-		{
-			get => _enabled;
-			set
-			{
-				_enabled = value;
-				if (_background != null)
-				{
-					_background.FadeColour(_enabled ? _color : new Color4(60, 60, 65, 255), 100);
-					_label.FadeColour(_enabled ? Color4.White : new Color4(100, 100, 100, 255), 100);
-				}
-			}
-		}
-
-		public ModernButton(string text, Color4 color)
-		{
-			_text = text;
-			_color = color;
-			Masking = true;
-			CornerRadius = 4;
-		}
-
-		[BackgroundDependencyLoader]
-		private void load()
-		{
-			InternalChildren = new Drawable[]
-			{
-				_background = new Box
-				{
-					RelativeSizeAxes = Axes.Both,
-					Colour = _enabled ? _color : new Color4(60, 60, 65, 255)
-				},
-				_label = new SpriteText
-				{
-					Text = _text,
-					Font = new FontUsage("", 15, "Bold"),
-					Colour = _enabled ? Color4.White : new Color4(100, 100, 100, 255),
-					Anchor = Anchor.Centre,
-					Origin = Anchor.Centre
-				}
-			};
-		}
-
-		protected override bool OnHover(HoverEvent e)
-		{
-			if (_enabled)
-				_background.FadeColour(_color.Lighten(0.2f), 100);
-			return base.OnHover(e);
-		}
-
-		protected override void OnHoverLost(HoverLostEvent e)
-		{
-			if (_enabled)
-				_background.FadeColour(_color, 100);
-			base.OnHoverLost(e);
-		}
-
-		protected override bool OnClick(ClickEvent e)
-		{
-			if (_enabled)
-			{
-				_background.FlashColour(Color4.White, 200, Easing.OutQuad);
-				Clicked?.Invoke();
-				return true;
-			}
-
-			return false;
-		}
 	}
 }

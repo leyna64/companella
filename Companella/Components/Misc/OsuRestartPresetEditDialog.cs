@@ -3,7 +3,6 @@ using Companella.Models.Application;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
-using osu.Framework.Graphics.Shapes;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Input.Events;
 using osuTK;
@@ -20,16 +19,11 @@ public partial class OsuRestartPresetEditDialog : CompositeDrawable
 	private SpriteText _titleText = null!;
 	private StyledTextBox _nameTextBox = null!;
 	private StyledTextBox _argumentsTextBox = null!;
-	private PresetDialogButton _saveButton = null!;
-	private PresetDialogButton _cancelButton = null!;
+	private StyledButton _saveButton = null!;
+	private StyledButton _cancelButton = null!;
 	private SpriteText _errorText = null!;
 
-	private OsuRestartPreset? _preset;
 	private int _presetIndex;
-
-	private readonly Color4 _accentColor = new(255, 102, 170, 255);
-	private readonly Color4 _dialogBgColor = new(25, 25, 30, 255);
-	private readonly Color4 _dialogBorderColor = new(60, 60, 70, 255);
 
 	/// <summary>
 	/// Event raised when the preset is saved.
@@ -52,108 +46,34 @@ public partial class OsuRestartPresetEditDialog : CompositeDrawable
 	{
 		InternalChildren = new Drawable[]
 		{
-			// Dim background
-			new Box
+			StyledDialog.CreateDimBackground(),
+			_dialogContainer = StyledDialog.CreateShell(new Vector2(400, 260), out var content)
+		};
+
+		content.Child = new FillFlowContainer
+		{
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 14),
+			Children = new Drawable[]
 			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = new Color4(0, 0, 0, 220)
-			},
-			// Dialog container with shadow
-			_dialogContainer = new Container
-			{
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre,
-				Size = new Vector2(400, 260),
-				Masking = true,
-				CornerRadius = 12,
-				Children = new Drawable[]
+				_titleText = StyledDialog.CreateTitle("Edit Preset"),
+				CreateLabeledInput("Preset Name", out _nameTextBox, "e.g., Bancho, Mames"),
+				CreateLabeledInput("Command Line Arguments", out _argumentsTextBox, "e.g., -devserver mamesosu.net"),
+				_errorText = StyledDialog.CreateErrorText(),
+				new FillFlowContainer
 				{
-					// Shadow layer
-					new Box
+					Anchor = Anchor.TopCentre,
+					Origin = Anchor.TopCentre,
+					AutoSizeAxes = Axes.Both,
+					Direction = FillDirection.Horizontal,
+					Spacing = new Vector2(12, 0),
+					Margin = new MarginPadding { Top = 4 },
+					Children = new Drawable[]
 					{
-						RelativeSizeAxes = Axes.Both,
-						Colour = new Color4(0, 0, 0, 100),
-						Margin = new MarginPadding(2)
-					},
-					// Main background
-					new Box
-					{
-						RelativeSizeAxes = Axes.Both,
-						Colour = _dialogBgColor
-					},
-					// Border
-					new Container
-					{
-						RelativeSizeAxes = Axes.Both,
-						Masking = true,
-						CornerRadius = 12,
-						BorderColour = _dialogBorderColor,
-						BorderThickness = 1.5f,
-						Child = new Box
-						{
-							RelativeSizeAxes = Axes.Both,
-							Alpha = 0,
-							AlwaysPresent = true
-						}
-					},
-					// Content
-					new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Vertical,
-						Padding = new MarginPadding(24),
-						Spacing = new Vector2(0, 16),
-						Children = new Drawable[]
-						{
-							// Title
-							_titleText = new SpriteText
-							{
-								Anchor = Anchor.TopCentre,
-								Origin = Anchor.TopCentre,
-								Text = "Edit Preset",
-								Font = new FontUsage("", 22, "Bold"),
-								Colour = _accentColor
-							},
-							// Name input
-							CreateLabeledInput("Preset Name", out _nameTextBox, "e.g., Bancho, Mames"),
-							// Arguments input
-							CreateLabeledInput("Command Line Arguments", out _argumentsTextBox,
-								"e.g., -devserver mamesosu.net"),
-							// Error text
-							_errorText = new SpriteText
-							{
-								Anchor = Anchor.TopCentre,
-								Origin = Anchor.TopCentre,
-								Text = "",
-								Font = new FontUsage("", 14),
-								Colour = new Color4(255, 100, 100, 255),
-								Alpha = 0
-							},
-							// Button container
-							new FillFlowContainer
-							{
-								Anchor = Anchor.TopCentre,
-								Origin = Anchor.TopCentre,
-								AutoSizeAxes = Axes.Both,
-								Direction = FillDirection.Horizontal,
-								Spacing = new Vector2(12, 0),
-								Margin = new MarginPadding { Top = 8 },
-								Children = new Drawable[]
-								{
-									_cancelButton = new PresetDialogButton("Cancel")
-									{
-										Size = new Vector2(110, 38),
-										BackgroundColour = new Color4(80, 80, 85, 255)
-									},
-									_saveButton = new PresetDialogButton("Save")
-									{
-										Size = new Vector2(110, 38),
-										BackgroundColour = _accentColor
-									}
-								}
-							}
-						}
+						_cancelButton = StyledDialog.CreateCancelButton(),
+						_saveButton = StyledDialog.CreatePrimaryButton("Save")
 					}
 				}
 			}
@@ -184,12 +104,7 @@ public partial class OsuRestartPresetEditDialog : CompositeDrawable
 				Spacing = new Vector2(0, 6),
 				Children = new Drawable[]
 				{
-					new SpriteText
-					{
-						Text = label,
-						Font = new FontUsage("", 14),
-						Colour = new Color4(160, 160, 160, 255)
-					},
+					StyledDialog.CreateFieldLabel(label),
 					textBox
 				}
 			}
@@ -202,18 +117,14 @@ public partial class OsuRestartPresetEditDialog : CompositeDrawable
 	public void Show(int presetIndex, OsuRestartPreset preset)
 	{
 		_presetIndex = presetIndex;
-		_preset = preset;
 
-		// Populate fields
 		_nameTextBox.Text = preset.Name;
 		_argumentsTextBox.Text = preset.Arguments;
 
 		_errorText.Alpha = 0;
-		_titleText.Text = presetIndex >= 0 ? $"Edit Preset" : "Add Preset";
+		_titleText.Text = presetIndex >= 0 ? "Edit Preset" : "Add Preset";
 
-		// Show with animation
-		this.FadeIn(200, Easing.OutQuint);
-		_dialogContainer.ScaleTo(0.9f).ScaleTo(1f, 200, Easing.OutQuint);
+		StyledDialog.PlayShowAnimation(this, _dialogContainer);
 	}
 
 	/// <summary>
@@ -221,18 +132,14 @@ public partial class OsuRestartPresetEditDialog : CompositeDrawable
 	/// </summary>
 	public new void Hide()
 	{
-		this.FadeOut(200, Easing.OutQuint);
+		StyledDialog.PlayHideAnimation(this);
 		Closed?.Invoke();
 	}
 
-	private void OnCancelClicked()
-	{
-		Hide();
-	}
+	private void OnCancelClicked() => Hide();
 
 	private void OnSaveClicked()
 	{
-		// Validate inputs
 		var name = _nameTextBox.Text.Trim();
 		if (string.IsNullOrEmpty(name))
 		{
@@ -240,10 +147,7 @@ public partial class OsuRestartPresetEditDialog : CompositeDrawable
 			return;
 		}
 
-		// Arguments can be empty (for plain Bancho start)
 		var arguments = _argumentsTextBox.Text.Trim();
-
-		// Create updated preset
 		var updatedPreset = new OsuRestartPreset(name, arguments);
 		PresetSaved?.Invoke(_presetIndex, updatedPreset);
 		Hide();
@@ -255,9 +159,5 @@ public partial class OsuRestartPresetEditDialog : CompositeDrawable
 		_errorText.FadeIn(100).Then().Delay(3000).FadeOut(200);
 	}
 
-	protected override bool OnClick(ClickEvent e)
-	{
-		// Prevent clicks from passing through
-		return true;
-	}
+	protected override bool OnClick(ClickEvent e) => true;
 }
