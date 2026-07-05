@@ -1,3 +1,5 @@
+using Companella.Services.Analysis.InterludePatterns;
+
 namespace Companella.Models.Beatmap;
 
 /// <summary>
@@ -41,8 +43,48 @@ public class PatternAnalysisResult
 	public string? ErrorMessage { get; set; }
 
 	/// <summary>
-	/// Gets the top 5 pattern type-BPM pairs by percentage of map.
-	/// Priority is based on note count within patterns (higher % = higher priority).
+	/// Interlude-style clustered patterns (primary display source).
+	/// </summary>
+	public List<InterludePatternCluster> InterludeClusters { get; set; } = new();
+
+	/// <summary>
+	/// Interlude map category (e.g. "180 Jumpstream Tech").
+	/// </summary>
+	public string? InterludeCategory { get; set; }
+
+	/// <summary>
+	/// Chart duration in milliseconds (first note to last note).
+	/// </summary>
+	public float ChartDurationMs { get; set; }
+
+	/// <summary>
+	/// Absolute time of the first note in the chart.
+	/// </summary>
+	public float ChartFirstNoteTimeMs { get; set; }
+
+	/// <summary>
+	/// Gets the Interlude map category for display, optionally prefixed with the dominant cluster BPM.
+	/// Example: "195 Jumpstream Tech" at 1.0x, "293 Jumpstream Tech" at 1.5x DT.
+	/// </summary>
+	public string? GetInterludeCategoryDisplay(float rate = 1.0f)
+	{
+		if (string.IsNullOrWhiteSpace(InterludeCategory))
+			return null;
+
+		if (InterludeClusters.Count == 0)
+			return InterludeCategory;
+
+		var topCluster = InterludeClusters.MaxBy(c => c.Importance);
+		if (topCluster == null || topCluster.Bpm <= 0)
+			return InterludeCategory;
+
+		var bpm = topCluster.Bpm * rate;
+		var prefix = topCluster.Mixed ? "~" : string.Empty;
+		return $"  {prefix}{InterludeCategory} {bpm:F0} BPM";
+	}
+
+	/// <summary>
+	/// Gets the top 5 pattern clusters sorted by map coverage (%).
 	/// </summary>
 	public List<TopPattern> GetTopPatterns()
 	{
@@ -52,16 +94,48 @@ public class PatternAnalysisResult
 	}
 
 	/// <summary>
-	/// Gets ALL pattern type-BPM pairs sorted by percentage of map.
+	/// Gets pattern clusters sorted by map coverage (%).
+	/// Falls back to legacy note-percentage sorting when clusters are unavailable.
 	/// </summary>
 	public List<TopPattern> GetAllPatternsSorted()
+	{
+		if (InterludeClusters.Count > 0)
+			return BuildFromInterludeClusters();
+
+		return BuildLegacyPatternsSorted();
+	}
+
+	private List<TopPattern> BuildFromInterludeClusters()
+	{
+		var totalCoverageMs = InterludeClusters.Sum(c => c.AmountMs);
+		if (totalCoverageMs <= 0)
+			totalCoverageMs = 1;
+
+		return InterludeClusters
+			.Select(cluster => new TopPattern
+			{
+				Type = InterludePatternEngine.MapSpecificTypeToPatternType(
+					cluster.SpecificTypes.Count > 0 ? cluster.SpecificTypes[0].Name : null,
+					cluster.Pattern),
+				Bpm = cluster.Bpm,
+				// Share of detected pattern coverage (sums to 100% across all clusters).
+				Percentage = cluster.AmountMs / totalCoverageMs * 100.0,
+				NoteCount = 0,
+				SpecificName = cluster.DisplayName,
+				Mixed = cluster.Mixed,
+				Importance = cluster.Importance
+			})
+			.OrderByDescending(p => p.Percentage)
+			.ToList();
+	}
+
+	private List<TopPattern> BuildLegacyPatternsSorted()
 	{
 		var allPatterns = new List<TopPattern>();
 
 		if (TotalNotes == 0 || Patterns.Count == 0)
 			return allPatterns;
 
-		// Flatten all patterns and calculate percentage for each type
 		foreach (var kvp in Patterns)
 		{
 			if (kvp.Value.Count == 0)
@@ -69,17 +143,11 @@ public class PatternAnalysisResult
 
 			var patternType = kvp.Key;
 			var patterns = kvp.Value;
-
-			// Calculate total notes in this pattern type
 			var notesInPattern = patterns.Sum(p => p.NoteCount);
 			var percentage = notesInPattern / (double)TotalNotes * 100.0;
-
-			// Get the dominant BPM (weighted average by note count)
 			var totalWeightedBpm = patterns.Sum(p => p.Bpm * p.NoteCount);
 			var dominantBpm = notesInPattern > 0 ? totalWeightedBpm / notesInPattern : 0;
 
-			// Skip patterns with 0 BPM (single chord events like Jump, Hand, Quad)
-			// unless they make up a significant portion
 			if (dominantBpm <= 0 && percentage < 5.0)
 				continue;
 
@@ -92,7 +160,6 @@ public class PatternAnalysisResult
 			});
 		}
 
-		// Sort by percentage descending
 		return allPatterns
 			.OrderByDescending(p => p.Percentage)
 			.ToList();
@@ -169,9 +236,24 @@ public class TopPattern
 	public int NoteCount { get; set; }
 
 	/// <summary>
+	/// Interlude-specific display name when available.
+	/// </summary>
+	public string? SpecificName { get; set; }
+
+	/// <summary>
+	/// Whether this cluster has unstable BPM spacing.
+	/// </summary>
+	public bool Mixed { get; set; }
+
+	/// <summary>
+	/// Interlude importance score used for sorting.
+	/// </summary>
+	public float Importance { get; set; }
+
+	/// <summary>
 	/// Gets the short name for display.
 	/// </summary>
-	public string ShortName => Type switch
+	public string ShortName => SpecificName ?? Type switch
 	{
 		PatternType.Trill => "Trill",
 		PatternType.Jack => "Jack",
@@ -201,9 +283,11 @@ public class TopPattern
 	public string PercentageDisplay => $"{Percentage:F0}%";
 
 	/// <summary>
-	/// Gets a compact display string: "Type @ BPM (%)".
+	/// Gets a compact display string matching Interlude format.
 	/// </summary>
-	public string CompactDisplay => Bpm > 0
-		? $"{ShortName} @ {Bpm:F0}"
-		: ShortName;
+	public string CompactDisplay => Mixed
+		? $"~{Bpm:F0} Mixed {ShortName}"
+		: Bpm > 0
+			? $"{Bpm:F0} {ShortName}"
+			: ShortName;
 }

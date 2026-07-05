@@ -107,6 +107,21 @@ public class Pattern
 	public int NoteCount { get; set; }
 
 	/// <summary>
+	/// Interlude-specific pattern name when detected (e.g. "Jumpstream", "Minijacks").
+	/// </summary>
+	public string? SpecificName { get; set; }
+
+	/// <summary>
+	/// Whether this pattern instance has unstable BPM spacing (Interlude "Mixed").
+	/// </summary>
+	public bool Mixed { get; set; }
+
+	/// <summary>
+	/// Interlude core pattern category: Stream, Chordstream, or Jacks.
+	/// </summary>
+	public string? CorePattern { get; set; }
+
+	/// <summary>
 	/// Duration of the pattern in milliseconds.
 	/// </summary>
 	public double Duration => EndTime - StartTime;
@@ -119,6 +134,8 @@ public class Pattern
 	/// <summary>
 	/// Gets a short display name for the pattern type.
 	/// </summary>
+	public string DisplayName => SpecificName ?? ShortName;
+
 	public string ShortName => Type switch
 	{
 		PatternType.Trill => "Trill",
