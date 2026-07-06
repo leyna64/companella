@@ -28,6 +28,12 @@ tab_width = 4
 # CA1051: Do not declare visible instance fields
 dotnet_diagnostic.CA1051.severity = none
 
+# Companella custom analyzers — fail the build on style violations
+dotnet_diagnostic.COMP001.severity = error
+dotnet_diagnostic.COMP002.severity = error
+dotnet_diagnostic.COMP003.severity = error
+dotnet_diagnostic.COMP004.severity = error
+
 # XML Documentation Comments (CS1570-CS1592, CS1710-CS1723)
 dotnet_diagnostic.CS1570.severity = none
 dotnet_diagnostic.CS1571.severity = none

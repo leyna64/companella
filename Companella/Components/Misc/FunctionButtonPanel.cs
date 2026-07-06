@@ -1,11 +1,11 @@
+using Companella.Components.Settings;
 using Companella.Components.Tools;
 using Companella.Models.Difficulty;
+using Companella.Components.Misc;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
-using osu.Framework.Graphics.Sprites;
 using osuTK;
-using osuTK.Graphics;
 
 namespace Companella.Components.Misc;
 
@@ -14,16 +14,13 @@ namespace Companella.Components.Misc;
 /// </summary>
 public partial class FunctionButtonPanel : CompositeDrawable
 {
-	private FunctionButton _analyzeBpmButton = null!;
-	private FunctionButton _normalizeSvButton = null!;
+	private StyledButton _analyzeBpmButton = null!;
+	private StyledButton _normalizeSvButton = null!;
 	private BpmFactorToggle _bpmFactorToggle = null!;
 
 	public event Action? AnalyzeBpmClicked;
 	public event Action? NormalizeSvClicked;
 
-	/// <summary>
-	/// Gets the currently selected BPM factor.
-	/// </summary>
 	public BpmFactor SelectedBpmFactor => _bpmFactorToggle?.CurrentFactor ?? BpmFactor.Normal;
 
 	public FunctionButtonPanel()
@@ -35,53 +32,48 @@ public partial class FunctionButtonPanel : CompositeDrawable
 	[BackgroundDependencyLoader]
 	private void load()
 	{
-		InternalChildren = new Drawable[]
+		var content = new FillFlowContainer
 		{
-			new FillFlowContainer
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 10),
+			Children = new Drawable[]
 			{
-				AutoSizeAxes = Axes.Both,
-				Direction = FillDirection.Vertical,
-				Spacing = new Vector2(0, 8),
-				Children = new Drawable[]
+				SettingsLayout.CreateHint("Detect BPM from audio or normalize scroll velocity for variable-BPM maps."),
+				new FillFlowContainer
 				{
-					new SpriteText
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Direction = FillDirection.Vertical,
+					Spacing = new Vector2(0, 8),
+					Children = new Drawable[]
 					{
-						Text = "BPM Analysis",
-						Font = new FontUsage("", 15, "Bold"),
-						Colour = new Color4(180, 180, 180, 255)
-					},
-					new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Horizontal,
-						Spacing = new Vector2(8, 0),
-						Children = new Drawable[]
+						_analyzeBpmButton = new StyledButton("BPM (BETA)")
 						{
-							_analyzeBpmButton = new FunctionButton("BPM (BETA)")
-							{
-								Width = 100,
-								Height = 32,
-								Enabled = false,
-								TooltipText = "Detect BPM from audio and generate timing points"
-							},
-							_bpmFactorToggle = new BpmFactorToggle
-							{
-								Width = 128,
-								Height = 32
-							},
-							_normalizeSvButton = new FunctionButton("Normalize SV")
-							{
-								Width = 100,
-								Height = 32,
-								Enabled = false,
-								TooltipText = "Convert variable BPM to constant BPM with SV compensation"
-							}
+							RelativeSizeAxes = Axes.X,
+							Height = 32,
+							Enabled = false,
+							TooltipText = "Detect BPM from audio and generate timing points"
+						},
+						_bpmFactorToggle = new BpmFactorToggle
+						{
+							RelativeSizeAxes = Axes.X,
+							Height = 32
+						},
+						_normalizeSvButton = new StyledButton("Normalize SV")
+						{
+							RelativeSizeAxes = Axes.X,
+							Height = 32,
+							Enabled = false,
+							TooltipText = "Convert variable BPM to constant BPM with SV compensation"
 						}
 					}
 				}
 			}
 		};
+
+		InternalChild = SettingsLayout.CreateSection("BPM Analysis", content);
 
 		_analyzeBpmButton.Clicked += () => AnalyzeBpmClicked?.Invoke();
 		_normalizeSvButton.Clicked += () => NormalizeSvClicked?.Invoke();

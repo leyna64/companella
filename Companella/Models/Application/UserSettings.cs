@@ -216,4 +216,10 @@ public class UserSettings
 	/// </summary>
 	[JsonPropertyName("riceDanCalculator")]
 	public RiceDanCalculatorMode RiceDanCalculator { get; set; } = RiceDanCalculatorMode.CompanellaOnnx;
+
+	/// <summary>
+	/// Whether the difficulty splitter intro overlay has been dismissed.
+	/// </summary>
+	[JsonPropertyName("hasSeenDifficultySplitterIntro")]
+	public bool HasSeenDifficultySplitterIntro { get; set; }
 }

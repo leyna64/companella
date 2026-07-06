@@ -1,3 +1,5 @@
+using Companella.Components.Misc;
+using Companella.Components.Settings;
 using Companella.Services.Session;
 using Companella.Services.Tools;
 using osu.Framework.Allocation;
@@ -22,14 +24,12 @@ public partial class ScoreImportPanel : CompositeDrawable
 
 	[Resolved] private ReplayFileWatcherService ReplayWatcherService { get; set; } = null!;
 
-	private ImportButton _importButton = null!;
-	private ImportButton _reimportReplaysButton = null!;
-	private SpriteText _statusText = null!;
-	private SpriteText _progressText = null!;
-	private SpriteText _resultText = null!;
+	private StyledButton _importButton = null!;
+	private StyledButton _reimportReplaysButton = null!;
+	private TextFlowContainer _statusText = null!;
+	private TextFlowContainer _progressText = null!;
+	private TextFlowContainer _resultText = null!;
 	private bool _isWorking;
-
-	private readonly Color4 _accentColor = new(255, 102, 170, 255);
 
 	[BackgroundDependencyLoader]
 	private void load()
@@ -37,107 +37,48 @@ public partial class ScoreImportPanel : CompositeDrawable
 		RelativeSizeAxes = Axes.X;
 		AutoSizeAxes = Axes.Y;
 
-		InternalChildren = new Drawable[]
+		var content = new FillFlowContainer
 		{
-			new FillFlowContainer
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 10),
+			Children = new Drawable[]
 			{
-				RelativeSizeAxes = Axes.X,
-				AutoSizeAxes = Axes.Y,
-				Direction = FillDirection.Vertical,
-				Spacing = new Vector2(0, 8),
-				Children = new Drawable[]
+				SettingsLayout.CreateWrappingText(
+					"Import osu!mania scores from scores.db as Companella sessions. Only scores with replay files are imported, grouped by calendar day.",
+					14,
+					StyledButton.Theme.MutedLabel),
+				SettingsLayout.CreateHint("MSD calculation runs for each play and may take a while for large imports."),
+				new FillFlowContainer
 				{
-					// Header
-					new SpriteText
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Direction = FillDirection.Vertical,
+					Spacing = new Vector2(0, 6),
+					Children = new Drawable[]
 					{
-						Text = "Score Import",
-						Font = new FontUsage("", 17, "Bold"),
-						Colour = new Color4(180, 180, 180, 255)
-					},
-					// Description
-					new TextFlowContainer(s =>
-					{
-						s.Font = new FontUsage("", 14);
-						s.Colour = new Color4(140, 140, 140, 255);
-					})
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Text = "Import older scores from osu!'s scores.db as Companella sessions. " +
-							   "Only imports osu!mania scores that have corresponding replay files (.osr). " +
-							   "Scores are grouped by calendar day into sessions."
-					},
-					// Warning
-					new TextFlowContainer(s =>
-					{
-						s.Font = new FontUsage("", 13);
-						s.Colour = new Color4(255, 180, 100, 255);
-					})
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Text = "Note: MSD calculation runs for each play, which may take a while for many scores."
-					},
-					// Button and status
-					new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Vertical,
-						Spacing = new Vector2(0, 6),
-						Margin = new MarginPadding { Top = 4 },
-						Children = new Drawable[]
+						new FillFlowContainer
 						{
-							// Buttons row
-							new FillFlowContainer
+							RelativeSizeAxes = Axes.X,
+							AutoSizeAxes = Axes.Y,
+							Direction = FillDirection.Vertical,
+							Spacing = new Vector2(0, 8),
+							Children = new Drawable[]
 							{
-								AutoSizeAxes = Axes.Both,
-								Direction = FillDirection.Horizontal,
-								Spacing = new Vector2(8, 0),
-								Children = new Drawable[]
-								{
-									_importButton = new ImportButton
-									{
-										Text = "Import Scores as Sessions",
-										Width = 200,
-										Height = 32,
-										Action = OnImportClicked
-									},
-									_reimportReplaysButton = new ImportButton
-									{
-										Text = "Find Missing Replays",
-										Width = 160,
-										Height = 32,
-										Action = OnFindMissingReplaysClicked
-									}
-								}
-							},
-							_statusText = new SpriteText
-							{
-								Text = "",
-								Font = new FontUsage("", 14),
-								Colour = new Color4(160, 160, 160, 255),
-								Alpha = 0
-							},
-							_progressText = new SpriteText
-							{
-								Text = "",
-								Font = new FontUsage("", 13),
-								Colour = new Color4(140, 140, 140, 255),
-								Alpha = 0
-							},
-							_resultText = new SpriteText
-							{
-								Text = "",
-								Font = new FontUsage("", 15),
-								Colour = _accentColor,
-								Alpha = 0
+								_importButton = new StyledButton("Import Scores as Sessions") { RelativeSizeAxes = Axes.X, Height = 32, Action = OnImportClicked },
+								_reimportReplaysButton = new StyledButton("Find Missing Replays") { AccentColor = StyledButton.Theme.InfoFill, RelativeSizeAxes = Axes.X, Height = 32, Action = OnFindMissingReplaysClicked }
 							}
-						}
+						},
+						_statusText = SettingsLayout.CreateStatusText(14, StyledButton.Theme.MutedLabel, 0),
+						_progressText = SettingsLayout.CreateStatusText(13, StyledButton.Theme.DisabledLabel, 0),
+						_resultText = SettingsLayout.CreateStatusText(15, StyledButton.Theme.Accent, 0)
 					}
 				}
 			}
 		};
+
+		InternalChild = new SettingsSection("Score Import", "Bring historical osu! scores into Companella sessions", content);
 	}
 
 	private void OnImportClicked()
@@ -146,7 +87,7 @@ public partial class ScoreImportPanel : CompositeDrawable
 			return;
 
 		_isWorking = true;
-		_importButton.Enabled.Value = false;
+		_importButton.SetEnabled(false);
 		_statusText.Alpha = 1;
 		_statusText.Text = "Starting import...";
 		_progressText.Alpha = 1;
@@ -169,7 +110,7 @@ public partial class ScoreImportPanel : CompositeDrawable
 			Schedule(() =>
 			{
 				_isWorking = false;
-				_importButton.Enabled.Value = true;
+				_importButton.SetEnabled(true);
 				_statusText.Alpha = 0;
 				_progressText.Alpha = 0;
 
@@ -224,8 +165,8 @@ public partial class ScoreImportPanel : CompositeDrawable
 			return;
 
 		_isWorking = true;
-		_importButton.Enabled.Value = false;
-		_reimportReplaysButton.Enabled.Value = false;
+		_importButton.SetEnabled(false);
+		_reimportReplaysButton.SetEnabled(false);
 		_statusText.Alpha = 1;
 		_statusText.Text = "Finding missing replays...";
 		_progressText.Alpha = 1;
@@ -242,8 +183,8 @@ public partial class ScoreImportPanel : CompositeDrawable
 			Schedule(() =>
 			{
 				_isWorking = false;
-				_importButton.Enabled.Value = true;
-				_reimportReplaysButton.Enabled.Value = true;
+				_importButton.SetEnabled(true);
+				_reimportReplaysButton.SetEnabled(true);
 				_statusText.Alpha = 0;
 				_progressText.Alpha = 0;
 
@@ -261,83 +202,5 @@ public partial class ScoreImportPanel : CompositeDrawable
 				_resultText.Alpha = 1;
 			});
 		});
-	}
-}
-
-/// <summary>
-/// Styled button for import action.
-/// </summary>
-public partial class ImportButton : CompositeDrawable
-{
-	private Box _background = null!;
-	private Box _hoverOverlay = null!;
-	private SpriteText _text = null!;
-
-	public string Text { get; set; } = "Button";
-	public Action? Action { get; set; }
-
-	public readonly Bindable<bool> Enabled = new(true);
-
-	private readonly Color4 _normalColor = new(60, 60, 70, 255);
-	private readonly Color4 _accentColor = new(255, 102, 170, 255);
-	private readonly Color4 _disabledColor = new(45, 45, 55, 255);
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 4;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _normalColor
-			},
-			_hoverOverlay = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _accentColor,
-				Alpha = 0
-			},
-			_text = new SpriteText
-			{
-				Text = Text,
-				Font = new FontUsage("", 15, "Bold"),
-				Colour = Color4.White,
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre
-			}
-		};
-
-		Enabled.BindValueChanged(e =>
-		{
-			_background.FadeColour(e.NewValue ? _normalColor : _disabledColor, 100);
-			_text.FadeTo(e.NewValue ? 1 : 0.5f, 100);
-		}, true);
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		if (Enabled.Value)
-			_hoverOverlay.FadeTo(0.2f, 100);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_hoverOverlay.FadeTo(0, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		if (!Enabled.Value)
-			return false;
-
-		_hoverOverlay.FadeTo(0.4f).Then().FadeTo(0.2f, 100);
-		Action?.Invoke();
-		return true;
 	}
 }

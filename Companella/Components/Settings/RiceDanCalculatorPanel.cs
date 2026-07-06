@@ -1,10 +1,10 @@
+using Companella.Components.Misc;
 using Companella.Models.Application;
 using Companella.Services.Common;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
-using osu.Framework.Graphics.Shapes;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.UserInterface;
 using osu.Framework.Localisation;
@@ -22,65 +22,33 @@ public partial class RiceDanCalculatorPanel : CompositeDrawable
 
 	private RiceDanCalculatorDropdown _calculatorDropdown = null!;
 
-	private readonly Color4 _accentColor = new(255, 102, 170, 255);
-	private readonly Color4 _backgroundColor = new(40, 40, 45, 255);
-
 	[BackgroundDependencyLoader]
 	private void load()
 	{
+		RelativeSizeAxes = Axes.X;
 		AutoSizeAxes = Axes.Y;
-		Masking = true;
-		CornerRadius = 8;
 
-		InternalChildren = new Drawable[]
+		var content = new FillFlowContainer
 		{
-			new Box
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 10),
+			Children = new Drawable[]
 			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _backgroundColor
-			},
-			new FillFlowContainer
-			{
-				RelativeSizeAxes = Axes.X,
-				AutoSizeAxes = Axes.Y,
-				Direction = FillDirection.Vertical,
-				Padding = new MarginPadding(12),
-				Spacing = new Vector2(0, 10),
-				Children = new Drawable[]
+				_calculatorDropdown = new RiceDanCalculatorDropdown
 				{
-					new SpriteText
-					{
-						Text = "Rice Dan Calculator",
-						Font = new FontUsage("", 19, "Bold"),
-						Colour = _accentColor
-					},
-					new SpriteText
-					{
-						Text = "Choose how 4K rice dan is estimated. Daniel falls back to Companella ONNX below Alpha.",
-						Font = new FontUsage("", 15),
-						Colour = new Color4(160, 160, 160, 255)
-					},
-					_calculatorDropdown = new RiceDanCalculatorDropdown
-					{
-						Width = 280,
-						Anchor = Anchor.TopLeft,
-						Origin = Anchor.TopLeft
-					},
-					new SpriteText
-					{
-						Text = "LN dan always uses the Companella Sunny-based estimator.",
-						Font = new FontUsage("", 13),
-						Colour = new Color4(120, 120, 120, 255)
-					},
-					new SpriteText
-					{
-						Text = "Daniel algorithm © 2026 TheBagelOfMan (MIT) — github.com/TheBagelOfMan/Daniel",
-						Font = new FontUsage("", 12),
-						Colour = new Color4(100, 100, 100, 255)
-					}
-				}
+					RelativeSizeAxes = Axes.X,
+					Anchor = Anchor.TopLeft,
+					Origin = Anchor.TopLeft
+				},
+				SettingsLayout.CreateHint("Daniel falls back to Companella ONNX below Alpha."),
+				SettingsLayout.CreateHint("LN dan always uses the Companella Sunny-based estimator."),
+				SettingsLayout.CreateHint("Daniel algorithm © 2026 TheBagelOfMan (MIT)")
 			}
 		};
+
+		InternalChild = new SettingsSection("Rice Dan Calculator", "Choose how 4K rice dan is estimated", content);
 
 		_calculatorDropdown.Items = Enum.GetValues<RiceDanCalculatorMode>();
 		_calculatorDropdown.Current.Value = UserSettingsService.Settings.RiceDanCalculator;
@@ -91,22 +59,15 @@ public partial class RiceDanCalculatorPanel : CompositeDrawable
 	{
 		UserSettingsService.Settings.RiceDanCalculator = e.NewValue;
 		Task.Run(async () => await UserSettingsService.SaveAsync());
-		Logger.Info($"[RiceDanCalculatorPanel] Changed to {e.NewValue}");
 	}
 }
 
-/// <summary>
-/// Dropdown for rice dan calculator selection.
-/// </summary>
 public partial class RiceDanCalculatorDropdown : BasicDropdown<RiceDanCalculatorMode>
 {
-	protected override LocalisableString GenerateItemText(RiceDanCalculatorMode item)
+	protected override LocalisableString GenerateItemText(RiceDanCalculatorMode item) => item switch
 	{
-		return item switch
-		{
-			RiceDanCalculatorMode.CompanellaOnnx => "Companella ONNX",
-			RiceDanCalculatorMode.Daniel => "Daniel (Alpha+ fallback to ONNX)",
-			_ => item.ToString()
-		};
-	}
+		RiceDanCalculatorMode.CompanellaOnnx => "Companella ONNX (default)",
+		RiceDanCalculatorMode.Daniel => "Daniel",
+		_ => item.ToString()
+	};
 }

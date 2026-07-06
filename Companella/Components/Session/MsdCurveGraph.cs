@@ -84,7 +84,6 @@ public partial class MsdCurveGraph : CompositeDrawable
 
 	public MsdCurveGraph()
 	{
-		Size = new Vector2(400, 180);
 	}
 
 	[BackgroundDependencyLoader]

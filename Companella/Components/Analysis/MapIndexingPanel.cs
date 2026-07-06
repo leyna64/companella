@@ -1,4 +1,6 @@
 using Companella.Analyzers.Attributes;
+using Companella.Components.Misc;
+using Companella.Components.Settings;
 using Companella.Services.Common;
 using Companella.Services.Database;
 using Companella.Services.Platform;
@@ -28,17 +30,13 @@ public partial class MapIndexingPanel : CompositeDrawable
 
 	[Resolved] private AptabaseService AptabaseService { get; set; } = null!;
 
-	private SpriteText _statusText = null!;
-	private SpriteText _mapCountText = null!;
-	private IndexButton _indexButton = null!;
-	private IndexButton _reindexButton = null!;
-	private IndexButton _refreshButton = null!;
+	private TextFlowContainer _statusText = null!;
+	private TextFlowContainer _mapCountText = null!;
+	private StyledButton _indexButton = null!;
+	private StyledButton _reindexButton = null!;
+	private StyledButton _refreshButton = null!;
 
 	private CancellationTokenSource? _indexingCts;
-
-	private readonly Color4 _primaryButtonColor = new(80, 150, 200, 255);
-	private readonly Color4 _secondaryButtonColor = new(100, 100, 120, 255);
-	private readonly Color4 _warningButtonColor = new(200, 130, 80, 255);
 
 	[BackgroundDependencyLoader]
 	[Suppress("COMP001")]
@@ -47,75 +45,33 @@ public partial class MapIndexingPanel : CompositeDrawable
 		RelativeSizeAxes = Axes.X;
 		AutoSizeAxes = Axes.Y;
 
-		InternalChildren = new Drawable[]
+		var content = new FillFlowContainer
 		{
-			new FillFlowContainer
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 10),
+			Children = new Drawable[]
 			{
-				RelativeSizeAxes = Axes.X,
-				AutoSizeAxes = Axes.Y,
-				Direction = FillDirection.Vertical,
-				Spacing = new Vector2(0, 8),
-				Children = new Drawable[]
+				_mapCountText = SettingsLayout.CreateStatusText(14, StyledButton.Theme.MutedLabel),
+				new FillFlowContainer
 				{
-					// Header
-					new SpriteText
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Direction = FillDirection.Vertical,
+					Spacing = new Vector2(0, 8),
+					Children = new Drawable[]
 					{
-						Text = "Map Database:",
-						Font = new FontUsage("", 16),
-						Colour = new Color4(200, 200, 200, 255)
-					},
-					// Map count
-					_mapCountText = new SpriteText
-					{
-						Text = "4K maps indexed: 0",
-						Font = new FontUsage("", 14),
-						Colour = new Color4(150, 150, 150, 255)
-					},
-					// Buttons row
-					new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Horizontal,
-						Spacing = new Vector2(8, 0),
-						Children = new Drawable[]
-						{
-							_indexButton = new IndexButton
-							{
-								Width = 90,
-								Height = 28,
-								ButtonText = "Index Maps",
-								ButtonColor = _primaryButtonColor,
-								TooltipText = "Scan osu! Songs folder to enable map recommendations"
-							},
-							_reindexButton = new IndexButton
-							{
-								Width = 100,
-								Height = 28,
-								ButtonText = "Reindex Maps",
-								ButtonColor = _warningButtonColor,
-								TooltipText = "Clear and rebuild the entire map index"
-							},
-							_refreshButton = new IndexButton
-							{
-								Width = 110,
-								Height = 28,
-								ButtonText = "Refresh All MSD",
-								ButtonColor = _secondaryButtonColor,
-								TooltipText = "Recalculate difficulty ratings for all indexed maps"
-							}
-						}
-					},
-					// Status text
-					_statusText = new SpriteText
-					{
-						Text = "",
-						Font = new FontUsage("", 16),
-						Colour = new Color4(120, 120, 120, 255)
+						_indexButton = new StyledButton("Index Maps") { AccentColor = StyledButton.Theme.InfoFill, RelativeSizeAxes = Axes.X, Height = 32, FontSize = 14, TooltipText = "Scan osu! Songs folder to enable map recommendations" },
+						_reindexButton = new StyledButton("Reindex Maps") { AccentColor = StyledButton.Theme.DestructiveAccent, RelativeSizeAxes = Axes.X, Height = 32, FontSize = 14, TooltipText = "Clear and rebuild the entire map index" },
+						_refreshButton = new StyledButton("Refresh All MSD", StyledButtonAppearance.Muted) { RelativeSizeAxes = Axes.X, Height = 32, FontSize = 14, TooltipText = "Recalculate difficulty ratings for all indexed maps" }
 					}
-				}
+				},
+				_statusText = SettingsLayout.CreateStatusText(14, StyledButton.Theme.DisabledLabel)
 			}
 		};
+
+		InternalChild = new SettingsSection("Map Database", "Index beatmaps for recommendations and difficulty data", content);
 
 		_indexButton.Clicked += OnIndexClicked;
 		_reindexButton.Clicked += OnReindexClicked;
@@ -220,9 +176,9 @@ public partial class MapIndexingPanel : CompositeDrawable
 
 	private void SetButtonsEnabled(bool enabled)
 	{
-		_indexButton.Enabled.Value = enabled;
-		_reindexButton.Enabled.Value = enabled;
-		_refreshButton.Enabled.Value = enabled;
+		_indexButton.SetEnabled(enabled);
+		_reindexButton.SetEnabled(enabled);
+		_refreshButton.SetEnabled(enabled);
 	}
 
 	/// <summary>
@@ -241,81 +197,5 @@ public partial class MapIndexingPanel : CompositeDrawable
 		_indexingCts?.Cancel();
 		_indexingCts?.Dispose();
 		base.Dispose(isDisposing);
-	}
-}
-
-/// <summary>
-/// Button used in the map indexing panel.
-/// </summary>
-public partial class IndexButton : CompositeDrawable, IHasTooltip
-{
-	private Box _background = null!;
-	private Box _hoverOverlay = null!;
-	private SpriteText _text = null!;
-
-	public string ButtonText { get; set; } = "Button";
-	public Color4 ButtonColor { get; set; } = new(80, 150, 200, 255);
-	public readonly BindableBool Enabled = new(true);
-
-	/// <summary>
-	/// Tooltip text displayed on hover.
-	/// </summary>
-	public LocalisableString TooltipText { get; set; }
-
-	public event Action? Clicked;
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 4;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = ButtonColor
-			},
-			_hoverOverlay = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = Color4.White,
-				Alpha = 0
-			},
-			_text = new SpriteText
-			{
-				Text = ButtonText,
-				Font = new FontUsage("", 14, "Bold"),
-				Colour = Color4.White,
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre
-			}
-		};
-
-		Enabled.BindValueChanged(e => { this.FadeTo(e.NewValue ? 1 : 0.5f, 100); }, true);
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		if (Enabled.Value)
-			_hoverOverlay.FadeTo(0.15f, 100);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_hoverOverlay.FadeTo(0, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		if (!Enabled.Value)
-			return false;
-
-		_hoverOverlay.FadeTo(0.3f, 50).Then().FadeTo(0.15f, 100);
-		Clicked?.Invoke();
-		return true;
 	}
 }

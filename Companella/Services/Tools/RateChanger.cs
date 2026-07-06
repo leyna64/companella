@@ -712,10 +712,15 @@ public class RateChanger
 						result.Add($"Version:{newDiffName}");
 						continue;
 					}
-					else if (trimmed.StartsWith("BeatmapID:"))
+					else if (trimmed.StartsWith("BeatmapID:", StringComparison.OrdinalIgnoreCase))
 					{
 						// Clear beatmap ID for new difficulty
 						result.Add("BeatmapID:0");
+						continue;
+					}
+					else if (trimmed.StartsWith("BeatmapSetID:", StringComparison.OrdinalIgnoreCase))
+					{
+						result.Add("BeatmapSetID:-1");
 						continue;
 					}
 
@@ -766,6 +771,211 @@ public class RateChanger
 		}
 
 		return result;
+	}
+
+	/// <summary>
+	/// Applies pack-level metadata, difficulty name, HP/OD overrides, and optional audio filename
+	/// without changing timing or hit objects. Used for map pack export at 1.0x rate.
+	/// </summary>
+	[SuppressMessage("Globalization", "CA1310:Specify StringComparison for correctness")]
+	public static List<string> ApplyPackMetadataAndDifficultyOverrides(
+		IEnumerable<string> lines,
+		string versionName,
+		double? customOd,
+		double? customHp,
+		string title,
+		string artist,
+		string creator,
+		string? tags,
+		string? source,
+		string? audioFilename = null,
+		bool resetOnlineIds = true)
+	{
+		var result = new List<string>();
+		var currentSection = string.Empty;
+
+		foreach (var line in lines)
+		{
+			var trimmed = line.Trim();
+
+			if (trimmed.StartsWith('[') && trimmed.EndsWith(']'))
+			{
+				currentSection = trimmed;
+				result.Add(line);
+				continue;
+			}
+
+			switch (currentSection)
+			{
+				case "[General]":
+					if (audioFilename != null && trimmed.StartsWith("AudioFilename:"))
+					{
+						result.Add($"AudioFilename:{audioFilename}");
+						continue;
+					}
+
+					break;
+
+				case "[Metadata]":
+					if (trimmed.StartsWith("Title:"))
+					{
+						result.Add($"Title:{title}");
+						continue;
+					}
+
+					if (trimmed.StartsWith("TitleUnicode:"))
+					{
+						result.Add($"TitleUnicode:{title}");
+						continue;
+					}
+
+					if (trimmed.StartsWith("Artist:"))
+					{
+						result.Add($"Artist:{artist}");
+						continue;
+					}
+
+					if (trimmed.StartsWith("ArtistUnicode:"))
+					{
+						result.Add($"ArtistUnicode:{artist}");
+						continue;
+					}
+
+					if (trimmed.StartsWith("Creator:"))
+					{
+						result.Add($"Creator:{creator}");
+						continue;
+					}
+
+					if (trimmed.StartsWith("Tags:"))
+					{
+						result.Add($"Tags:{tags ?? ""}");
+						continue;
+					}
+
+					if (trimmed.StartsWith("Source:"))
+					{
+						result.Add($"Source:{source ?? ""}");
+						continue;
+					}
+
+					if (trimmed.StartsWith("Version:"))
+					{
+						result.Add($"Version:{versionName}");
+						continue;
+					}
+
+					if (resetOnlineIds && trimmed.StartsWith("BeatmapID:", StringComparison.OrdinalIgnoreCase))
+					{
+						result.Add("BeatmapID:0");
+						continue;
+					}
+
+					if (resetOnlineIds && trimmed.StartsWith("BeatmapSetID:", StringComparison.OrdinalIgnoreCase))
+					{
+						result.Add("BeatmapSetID:-1");
+						continue;
+					}
+
+					break;
+
+				case "[Difficulty]":
+					if (customOd.HasValue && trimmed.StartsWith("OverallDifficulty:"))
+					{
+						result.Add(
+							$"OverallDifficulty:{customOd.Value.ToString("0.0#", CultureInfo.InvariantCulture)}");
+						continue;
+					}
+
+					if (customHp.HasValue && trimmed.StartsWith("HPDrainRate:"))
+					{
+						result.Add($"HPDrainRate:{customHp.Value.ToString("0.0#", CultureInfo.InvariantCulture)}");
+						continue;
+					}
+
+					break;
+			}
+
+			result.Add(line);
+		}
+
+		return resetOnlineIds ? EnsureOnlineBeatmapIdsReset(result) : result;
+	}
+
+	/// <summary>
+	/// Ensures exported beatmaps have local-only online IDs (BeatmapID 0, BeatmapSetID -1).
+	/// Inserts missing ID lines into the Metadata section when absent.
+	/// </summary>
+	[SuppressMessage("Globalization", "CA1310:Specify StringComparison for correctness")]
+	public static List<string> EnsureOnlineBeatmapIdsReset(List<string> lines)
+	{
+		var output = new List<string>();
+		var inMetadata = false;
+		var wroteBeatmapId = false;
+		var wroteBeatmapSetId = false;
+		var metadataLines = new List<string>();
+
+		void FlushMetadata()
+		{
+			if (!inMetadata)
+				return;
+
+			if (!wroteBeatmapId)
+				metadataLines.Add("BeatmapID:0");
+			if (!wroteBeatmapSetId)
+				metadataLines.Add("BeatmapSetID:-1");
+
+			output.AddRange(metadataLines);
+			metadataLines.Clear();
+			inMetadata = false;
+			wroteBeatmapId = false;
+			wroteBeatmapSetId = false;
+		}
+
+		foreach (var line in lines)
+		{
+			var trimmed = line.Trim();
+
+			if (trimmed == "[Metadata]")
+			{
+				FlushMetadata();
+				output.Add(line);
+				inMetadata = true;
+				continue;
+			}
+
+			if (inMetadata && trimmed.StartsWith('[') && trimmed.EndsWith(']'))
+			{
+				FlushMetadata();
+				output.Add(line);
+				continue;
+			}
+
+			if (inMetadata)
+			{
+				if (trimmed.StartsWith("BeatmapID:", StringComparison.OrdinalIgnoreCase))
+				{
+					metadataLines.Add("BeatmapID:0");
+					wroteBeatmapId = true;
+				}
+				else if (trimmed.StartsWith("BeatmapSetID:", StringComparison.OrdinalIgnoreCase))
+				{
+					metadataLines.Add("BeatmapSetID:-1");
+					wroteBeatmapSetId = true;
+				}
+				else
+				{
+					metadataLines.Add(line);
+				}
+
+				continue;
+			}
+
+			output.Add(line);
+		}
+
+		FlushMetadata();
+		return output;
 	}
 
 	/// <summary>

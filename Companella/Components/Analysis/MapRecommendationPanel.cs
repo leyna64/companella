@@ -1,4 +1,5 @@
 using Companella.Components.Charts;
+using Companella.Components.Misc;
 using Companella.Models.Session;
 using Companella.Models.Training;
 using Companella.Services.Analysis;
@@ -46,8 +47,8 @@ public partial class MapRecommendationPanel : CompositeDrawable
 	private FocusDropdown _focusDropdown = null!;
 	private SkillsetDropdown _skillsetDropdown = null!;
 	private Container _skillsetContainer = null!;
-	private RecommendationRefreshButton _refreshButton = null!;
-	private QuickRestartButton _restartButton = null!;
+	private StyledButton _refreshButton = null!;
+	private StyledButton _restartButton = null!;
 	private FillFlowContainer _recommendationsContainer = null!;
 	private SpriteText _statusText = null!;
 	private SpriteText _summaryText = null!;
@@ -174,17 +175,19 @@ public partial class MapRecommendationPanel : CompositeDrawable
 						Spacing = new Vector2(8, 0),
 						Children = new Drawable[]
 						{
-							_refreshButton = new RecommendationRefreshButton
+							_refreshButton = new StyledButton("Find Maps", new Color4(255, 102, 170, 255))
 							{
 								Size = new Vector2(80, 24),
 								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft
+								Origin = Anchor.CentreLeft,
+								FontSize = 17
 							},
-							_restartButton = new QuickRestartButton
+							_restartButton = new StyledButton("Restart osu!", new Color4(80, 160, 220, 255))
 							{
 								Size = new Vector2(90, 24),
 								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft
+								Origin = Anchor.CentreLeft,
+								FontSize = 17
 							},
 							_loadingSpinner = new RecommendationLoadingSpinner
 							{
@@ -296,7 +299,7 @@ public partial class MapRecommendationPanel : CompositeDrawable
 		}
 
 		_loadingSpinner.FadeTo(1, 100);
-		_refreshButton.Enabled.Value = false;
+		_refreshButton.SetEnabled(false);
 		_statusText.Text = "Generating recommendations...";
 		_recommendationsContainer.Clear();
 
@@ -321,7 +324,7 @@ public partial class MapRecommendationPanel : CompositeDrawable
 			Schedule(() =>
 			{
 				_loadingSpinner.FadeTo(0, 100);
-				_refreshButton.Enabled.Value = true;
+				_refreshButton.SetEnabled(true);
 			});
 		}
 	}
@@ -687,75 +690,6 @@ public partial class SkillsetDropdown : BasicDropdown<string>
 }
 
 /// <summary>
-/// Refresh button for recommendations.
-/// </summary>
-public partial class RecommendationRefreshButton : CompositeDrawable
-{
-	private Box _background = null!;
-	private Box _hoverOverlay = null!;
-
-	public readonly BindableBool Enabled = new(true);
-	public event Action? Clicked;
-
-	private readonly Color4 _accentColor = new(255, 102, 170, 255);
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 4;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _accentColor
-			},
-			_hoverOverlay = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = Color4.White,
-				Alpha = 0
-			},
-			new SpriteText
-			{
-				Text = "Find Maps",
-				Font = new FontUsage("", 17, "Bold"),
-				Colour = Color4.White,
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre
-			}
-		};
-
-		Enabled.BindValueChanged(e => { this.FadeTo(e.NewValue ? 1 : 0.5f, 100); }, true);
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		if (Enabled.Value)
-			_hoverOverlay.FadeTo(0.15f, 100);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_hoverOverlay.FadeTo(0, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		if (!Enabled.Value)
-			return false;
-
-		_hoverOverlay.FadeTo(0.3f, 50).Then().FadeTo(0.15f, 100);
-		Clicked?.Invoke();
-		return true;
-	}
-}
-
-/// <summary>
 /// Simple loading spinner for recommendations.
 /// </summary>
 public partial class RecommendationLoadingSpinner : CompositeDrawable
@@ -779,74 +713,5 @@ public partial class RecommendationLoadingSpinner : CompositeDrawable
 		base.Update();
 
 		if (Alpha > 0) _spinner.Rotation += (float)(Time.Elapsed * 0.3);
-	}
-}
-
-/// <summary>
-/// Button for quickly restarting osu! to reload collections.
-/// </summary>
-public partial class QuickRestartButton : CompositeDrawable
-{
-	private Box _background = null!;
-	private Box _hoverOverlay = null!;
-
-	public readonly BindableBool Enabled = new(true);
-	public event Action? Clicked;
-
-	private readonly Color4 _buttonColor = new(80, 160, 220, 255);
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 4;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _buttonColor
-			},
-			_hoverOverlay = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = Color4.White,
-				Alpha = 0
-			},
-			new SpriteText
-			{
-				Text = "Restart osu!",
-				Font = new FontUsage("", 17, "Bold"),
-				Colour = Color4.White,
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre
-			}
-		};
-
-		Enabled.BindValueChanged(e => { this.FadeTo(e.NewValue ? 1 : 0.5f, 100); }, true);
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		if (Enabled.Value)
-			_hoverOverlay.FadeTo(0.15f, 100);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_hoverOverlay.FadeTo(0, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		if (!Enabled.Value)
-			return false;
-
-		_hoverOverlay.FadeTo(0.3f, 50).Then().FadeTo(0.15f, 100);
-		Clicked?.Invoke();
-		return true;
 	}
 }

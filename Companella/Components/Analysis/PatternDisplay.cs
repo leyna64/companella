@@ -16,7 +16,7 @@ using osuTK.Graphics;
 namespace Companella.Components.Analysis;
 
 /// <summary>
-/// Displays top 5 pattern types sorted by their pattern-specific MSD,
+/// Displays top 5 pattern types sorted by map coverage (%),
 /// plus the dan classification below (using YAVSRG difficulty).
 /// </summary>
 public partial class PatternDisplay : CompositeDrawable
@@ -236,6 +236,7 @@ public partial class PatternDisplay : CompositeDrawable
 		_rowsContainer.FadeTo(0, 100);
 		_classifierContainer.FadeTo(0, 100);
 		_lnClassifierContainer.FadeTo(0, 100);
+		_titleText.FadeTo(0, 100);
 	}
 
 	/// <summary>
@@ -263,6 +264,7 @@ public partial class PatternDisplay : CompositeDrawable
 		_lnClassifierContainer.FadeTo(0, 100);
 		_rowsContainer.Clear();
 		_titleText.Text = "";
+		_titleText.Alpha = 0;
 		_currentPatternResult = null;
 		_currentTopPatterns = null;
 		_pendingMsdScores = null;
@@ -276,8 +278,7 @@ public partial class PatternDisplay : CompositeDrawable
 
 	/// <summary>
 	/// Sets the pattern analysis result to display.
-	/// If MSD scores are already available, shows top 5 patterns sorted by MSD.
-	/// Otherwise shows patterns by percentage until MSD arrives.
+	/// Patterns are sorted by map coverage (%).
 	/// </summary>
 	public void SetPatternResult(PatternAnalysisResult result, OsuFile osuFile)
 	{
@@ -293,72 +294,28 @@ public partial class PatternDisplay : CompositeDrawable
 
 		_currentPatternResult = result;
 		_currentOsuFile = osuFile;
+		UpdateCategoryTitle();
+		DisplayPatterns(result);
 		TriggerLnClassification();
 
-		// Check if MSD is already available (handles race condition)
 		if (_pendingMsdScores != null)
-		{
-			// MSD arrived before patterns, sort by MSD now
-			DisplayPatternsSortedByMsd(result, _pendingMsdScores);
-			// Trigger classification now that both patterns and MSD are ready
 			TriggerClassification();
-			_pendingMsdScores = null;
-		}
-		else
-		{
-			// No MSD yet, show patterns sorted by percentage temporarily
-			// Exclude Jump, Quad, and Hand patterns
-			var topPatterns = result.GetTopPatterns()
-				.Where(p => p.Type != PatternType.Jump && p.Type != PatternType.Quad && p.Type != PatternType.Hand)
-				.Take(5)
-				.ToList();
-			_currentTopPatterns = topPatterns;
-
-			if (topPatterns.Count == 0)
-			{
-				_titleText.Text = "";
-				_rowsContainer.FadeTo(1, 200);
-				return;
-			}
-
-			_titleText.Text = "";
-
-			// Add top pattern rows (max 5, sorted by percentage for now)
-			foreach (var pattern in topPatterns)
-			{
-				var color = _patternColors.GetValueOrDefault(pattern.Type, _valueColor);
-				_rowsContainer.Add(new TopPatternRow(pattern, color, null, null));
-			}
-
-			_rowsContainer.FadeTo(1, 200);
-
-			// Don't classify yet - wait for MSD scores to arrive for accurate pattern ranking
-			// Classification will be triggered when SetMsdScores is called
-		}
 	}
 
 	/// <summary>
-	/// Sets the MSD scores and triggers re-sorting of patterns.
-	/// Call this after MSD analysis completes.
-	/// Handles race condition: if patterns aren't ready yet, stores scores for later.
+	/// Stores MSD scores for dan classification. Does not affect pattern sort order.
 	/// </summary>
 	/// <param name="scores">MSD skillset scores.</param>
 	/// <param name="rate">Rate multiplier (1.0 = normal, 1.5 = DT, 0.75 = HT).</param>
 	public void SetMsdScores(SkillsetScores scores, float rate = 1.0f)
 	{
-		// Always store the scores and rate for classification
 		_pendingMsdScores = scores;
 		_currentRate = rate;
+		UpdateCategoryTitle();
 
 		if (_currentPatternResult == null)
-			// Patterns haven't arrived yet, scores stored for when they do
 			return;
 
-		// Both are ready - re-sort patterns by MSD
-		_rowsContainer.Clear();
-		DisplayPatternsSortedByMsd(_currentPatternResult, scores);
-
-		// Trigger classification now that patterns are sorted by MSD
 		TriggerClassification();
 		TriggerLnClassification();
 	}
@@ -370,12 +327,12 @@ public partial class PatternDisplay : CompositeDrawable
 	{
 		_currentOsuFile = osuFile;
 		_currentRate = rate;
+		UpdateCategoryTitle();
 		TriggerLnClassification();
 	}
 
 	/// <summary>
 	/// Triggers classification using the current top patterns and OsuFile.
-	/// Only classifies if both are available and MSD-sorted patterns exist.
 	/// </summary>
 	private void TriggerClassification()
 	{
@@ -490,46 +447,45 @@ public partial class PatternDisplay : CompositeDrawable
 	}
 
 	/// <summary>
-	/// Displays patterns sorted by their pattern-specific MSD (highest first).
+	/// Displays the top 5 patterns sorted by map coverage (%).
 	/// </summary>
-	private void DisplayPatternsSortedByMsd(PatternAnalysisResult result, SkillsetScores scores)
+	private void DisplayPatterns(PatternAnalysisResult result)
 	{
-		// Get all patterns from the result, excluding Jump, Quad, and Hand
-		var allPatterns = result.GetAllPatternsSorted()
+		var topPatterns = result.GetTopPatterns()
 			.Where(p => p.Type != PatternType.Jump && p.Type != PatternType.Quad && p.Type != PatternType.Hand)
+			.Take(5)
 			.ToList();
 
-		if (allPatterns.Count == 0)
+		_currentTopPatterns = topPatterns;
+
+		if (topPatterns.Count == 0)
 		{
-			_titleText.Text = "";
 			_rowsContainer.FadeTo(1, 200);
 			return;
 		}
 
-		// Sort patterns by their pattern-specific MSD (highest first)
-		var patternsByMsd = allPatterns
-			.Select(p => new
-			{
-				Pattern = p,
-				Msd = PatternToMsdMapper.GetMsdForPattern(p.Type, scores),
-				MsdName = PatternToMsdMapper.GetMsdNameForPattern(p.Type)
-			})
-			.Where(p => p.Msd > 0) // Only show patterns with MSD > 0
-			.OrderByDescending(p => p.Msd)
-			.Take(5)
-			.ToList();
-
-		_currentTopPatterns = patternsByMsd.Select(p => p.Pattern).ToList();
-		_titleText.Text = "";
-
-		// Add top pattern rows sorted by MSD
-		foreach (var item in patternsByMsd)
+		// Rescale the visible rows so their percentages sum to 100%.
+		var visibleTotal = topPatterns.Sum(p => p.Percentage);
+		if (visibleTotal > 0)
 		{
-			var color = _patternColors.GetValueOrDefault(item.Pattern.Type, _valueColor);
-			_rowsContainer.Add(new TopPatternRow(item.Pattern, color, item.Msd, item.MsdName));
+			foreach (var pattern in topPatterns)
+				pattern.Percentage = pattern.Percentage / visibleTotal * 100.0;
+		}
+
+		foreach (var pattern in topPatterns)
+		{
+			var color = _patternColors.GetValueOrDefault(pattern.Type, _valueColor);
+			_rowsContainer.Add(new TopPatternRow(pattern, color));
 		}
 
 		_rowsContainer.FadeTo(1, 200);
+	}
+
+	private void UpdateCategoryTitle()
+	{
+		var title = _currentPatternResult?.GetInterludeCategoryDisplay(_currentRate);
+		_titleText.Text = title ?? string.Empty;
+		_titleText.Alpha = string.IsNullOrEmpty(title) ? 0 : 1;
 	}
 
 	/// <summary>
@@ -559,24 +515,16 @@ public partial class PatternDisplay : CompositeDrawable
 	}
 
 	/// <summary>
-	/// A compact row showing pattern type, BPM, and MSD (or percentage if no MSD).
-	/// Format: "[color] Type @ BPM  MSD XX.X" or "[color] Type @ BPM  XX%"
+	/// A compact row showing pattern type, BPM, and map coverage (%).
 	/// </summary>
 	private partial class TopPatternRow : CompositeDrawable
 	{
-		public TopPatternRow(TopPattern pattern, Color4 color, double? msd = null, string? msdName = null)
+		public TopPatternRow(TopPattern pattern, Color4 color)
 		{
 			RelativeSizeAxes = Axes.X;
 			Height = 18;
 
 			var secondaryColor = new Color4(160, 160, 160, 255);
-
-			// Display MSD if available, otherwise percentage
-			string rightText;
-			if (msd.HasValue && msd.Value > 0)
-				rightText = msdName != null ? $"{msdName} {msd:F1}" : $"MSD {msd:F1}";
-			else
-				rightText = pattern.PercentageDisplay;
 
 			InternalChildren = new Drawable[]
 			{
@@ -622,10 +570,12 @@ public partial class PatternDisplay : CompositeDrawable
 											Colour = color
 										}
 									},
-									// Pattern name
+									// Pattern name (Interlude-style when available)
 									new SpriteText
 									{
-										Text = pattern.ShortName,
+										Text = pattern.Mixed
+											? $"~{pattern.ShortName}"
+											: pattern.ShortName,
 										Font = new FontUsage("", 16),
 										Colour = color,
 										Anchor = Anchor.CentreLeft,
@@ -634,7 +584,7 @@ public partial class PatternDisplay : CompositeDrawable
 									// @ BPM (if has BPM)
 									new SpriteText
 									{
-										Text = pattern.Bpm > 0 ? $"@ {pattern.Bpm:F0}" : "",
+										Text = pattern.Bpm > 0 ? $"{pattern.Bpm:F0} BPM" : "",
 										Font = new FontUsage("", 15),
 										Colour = new Color4(200, 200, 200, 255),
 										Anchor = Anchor.CentreLeft,
@@ -642,10 +592,10 @@ public partial class PatternDisplay : CompositeDrawable
 									}
 								}
 							},
-							// Right: MSD or Percentage
+							// Right: map coverage
 							new SpriteText
 							{
-								Text = rightText,
+								Text = pattern.PercentageDisplay,
 								Font = new FontUsage("", 15),
 								Colour = secondaryColor,
 								Anchor = Anchor.CentreRight,

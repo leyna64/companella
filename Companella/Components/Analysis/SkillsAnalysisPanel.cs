@@ -1,5 +1,7 @@
 using System.Globalization;
 using Companella.Components.Charts;
+using Companella.Components.Misc;
+using Companella.Components.Settings;
 using Companella.Models.Session;
 using Companella.Models.Training;
 using Companella.Services.Analysis;
@@ -32,8 +34,8 @@ public partial class SkillsAnalysisPanel : CompositeDrawable
 	private Container _peakSkillLevelsContainer = null!;
 	private Container _skillLevelsContainer = null!;
 	private MapRecommendationPanel _recommendationPanel = null!;
-	private SpriteText _statusText = null!;
-	private SpriteText _trendSummaryText = null!;
+	private TextFlowContainer _statusText = null!;
+	private TextFlowContainer _trendSummaryText = null!;
 
 	// Range input fields
 	private BasicTextBox _msdMinInput = null!;
@@ -86,39 +88,17 @@ public partial class SkillsAnalysisPanel : CompositeDrawable
 	[BackgroundDependencyLoader]
 	private void load()
 	{
-		InternalChildren = new Drawable[]
+		var content = new FillFlowContainer
 		{
-			new FillFlowContainer
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 12),
+			Padding = new MarginPadding { Bottom = 40 },
+			Children = new Drawable[]
 			{
-				RelativeSizeAxes = Axes.X,
-				AutoSizeAxes = Axes.Y,
-				Direction = FillDirection.Vertical,
-				Spacing = new Vector2(0, 12),
-				Padding = new MarginPadding { Bottom = 40 }, // Extra space at bottom for scrolling
-				Children = new Drawable[]
-				{
-					// Header
-					new SpriteText
-					{
-						Text = "Skills Analysis",
-						Font = new FontUsage("", 17, "Bold"),
-						Colour = new Color4(180, 180, 180, 255)
-					},
-					// Status text
-					_statusText = new SpriteText
-					{
-						Text = "Loading...",
-						Font = new FontUsage("", 14),
-						Colour = new Color4(120, 120, 120, 255)
-					},
-					// Trend summary
-					_trendSummaryText = new SpriteText
-					{
-						Text = "",
-						Font = new FontUsage("", 14),
-						Colour = _accentColor,
-						Alpha = 0
-					},
+				_statusText = SettingsLayout.CreateStatusText(14, StyledButton.Theme.DisabledLabel),
+				_trendSummaryText = SettingsLayout.CreateStatusText(14, StyledButton.Theme.Accent, 0),
 					// Stats container
 					_statsContainer = new FillFlowContainer
 					{
@@ -147,7 +127,7 @@ public partial class SkillsAnalysisPanel : CompositeDrawable
 						RelativeSizeAxes = Axes.X,
 						Height = 220,
 						Masking = true,
-						CornerRadius = 6,
+						CornerRadius = StyledDialog.CornerRadius,
 						Child = _skillsChart = new SkillsOverTimeChart
 						{
 							RelativeSizeAxes = Axes.Both
@@ -158,25 +138,33 @@ public partial class SkillsAnalysisPanel : CompositeDrawable
 					{
 						RelativeSizeAxes = Axes.X,
 						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Horizontal,
-						Spacing = new Vector2(12, 0),
+						Direction = FillDirection.Vertical,
+						Spacing = new Vector2(0, 8),
 						Children = new Drawable[]
 						{
-							CreateRangeInput("MSD Min:", out _msdMinInput,
-								SkillsOverTimeChart.DefaultMsdMin.ToString("F0", CultureInfo.InvariantCulture)),
-							CreateRangeInput("MSD Max:", out _msdMaxInput,
-								SkillsOverTimeChart.DefaultMsdMax.ToString("F0", CultureInfo.InvariantCulture)),
-							CreateRangeInput("Acc Min:", out _accMinInput,
-								SkillsOverTimeChart.DefaultAccuracyMin.ToString("F0", CultureInfo.InvariantCulture)),
-							CreateRangeInput("Acc Max:", out _accMaxInput,
-								SkillsOverTimeChart.DefaultAccuracyMax.ToString("F0", CultureInfo.InvariantCulture))
+							SettingsLayout.CreateRow(
+								CreateRangeInput("MSD Min:", out _msdMinInput,
+									SkillsOverTimeChart.DefaultMsdMin.ToString("F0", CultureInfo.InvariantCulture)),
+								CreateRangeInput("MSD Max:", out _msdMaxInput,
+									SkillsOverTimeChart.DefaultMsdMax.ToString("F0", CultureInfo.InvariantCulture))),
+							SettingsLayout.CreateRow(
+								CreateRangeInput("Acc Min:", out _accMinInput,
+									SkillsOverTimeChart.DefaultAccuracyMin.ToString("F0", CultureInfo.InvariantCulture)),
+								CreateRangeInput("Acc Max:", out _accMaxInput,
+									SkillsOverTimeChart.DefaultAccuracyMax.ToString("F0", CultureInfo.InvariantCulture)))
 						}
 					},
 					// Map recommendations panel
 					_recommendationPanel = new MapRecommendationPanel()
 				}
-			}
 		};
+
+		InternalChild = SettingsLayout.CreateSection(
+			"Skills Analysis",
+			"Analyze skill trends over time and get map recommendations",
+			content);
+
+		_statusText.Text = "Loading...";
 
 		_recommendationPanel.MapSelected += rec => MapSelected?.Invoke(rec);
 
