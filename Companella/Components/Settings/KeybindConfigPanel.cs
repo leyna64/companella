@@ -1,15 +1,13 @@
-using System.Globalization;
 using Companella.Components.Misc;
 using Companella.Services.Common;
 using Companella.Services.Platform;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
-using osu.Framework.Graphics.Cursor;
-using osu.Framework.Graphics.Shapes;
-using osu.Framework.Graphics.Sprites;
+using osu.Framework.Input;
+using osu.Framework.Input.Bindings;
 using osu.Framework.Input.Events;
-using osu.Framework.Localisation;
+using osu.Framework.Platform;
 using osuTK;
 using osuTK.Graphics;
 using osuTK.Input;
@@ -24,6 +22,8 @@ public partial class KeybindConfigPanel : CompositeDrawable
 	[Resolved] private UserSettingsService SettingsService { get; set; } = null!;
 
 	[Resolved] private GlobalHotkeyService HotkeyService { get; set; } = null!;
+
+	[Resolved] private ReadableKeyCombinationProvider KeyCombinationProvider { get; set; } = null!;
 
 	private StyledButton _keybindButton = null!;
 	private bool _isRecording;
@@ -139,7 +139,21 @@ public partial class KeybindConfigPanel : CompositeDrawable
 	private void UpdateKeybindDisplay()
 	{
 		if (_pressedKeys.Count > 0)
-			_keybindButton.SetKeybindText(FormatKeybind(BuildKeybindString(_pressedKeys)));
+			_keybindButton.SetKeybindText(FormatLiveKeybind(_pressedKeys));
+	}
+
+	private string FormatKeybind(string keybind) =>
+		KeyboardDisplayHelper.FormatStoredKeybind(KeyCombinationProvider, keybind);
+
+	private string FormatLiveKeybind(IEnumerable<Key> keys)
+	{
+		var inputKeys = new List<InputKey>();
+		foreach (var key in keys)
+			inputKeys.Add(KeyCombination.FromKey(key));
+
+		return inputKeys.Count == 0
+			? string.Empty
+			: KeyCombinationProvider.GetReadableString(new KeyCombination(inputKeys));
 	}
 
 	private static string BuildKeybindString(List<Key> keys)
@@ -205,30 +219,5 @@ public partial class KeybindConfigPanel : CompositeDrawable
 			Key.Right => "Right",
 			_ => key.ToString()
 		};
-	}
-	public static string FormatKeybind(string keybind)
-	{
-		// Format for display (e.g., "Ctrl+OemPlus" -> "CTRL + =")
-		var parts = keybind.Split('+');
-		var formatted = parts.Select(part =>
-		{
-			return part.Trim() switch
-			{
-				"OemPlus" => "=",
-				"OemMinus" => "-",
-				"OemOpenBrackets" => "[",
-				"OemCloseBrackets" => "]",
-				"OemSemicolon" => ";",
-				"OemQuotes" => "'",
-				"OemComma" => ",",
-				"OemPeriod" => ".",
-				"OemQuestion" => "/",
-				"OemPipe" => "\\",
-				"OemTilde" => "~",
-				_ => part.ToUpper(CultureInfo.InvariantCulture)
-			};
-		});
-
-		return string.Join(" + ", formatted);
 	}
 }

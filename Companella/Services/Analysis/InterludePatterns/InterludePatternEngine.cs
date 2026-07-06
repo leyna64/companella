@@ -457,7 +457,7 @@ public static class InterludePatternEngine
 			specificTypes[0].Name == "Jumpstream" &&
 			specificTypes[1].Name == "Handstream" &&
 			specificTypes[1].Fraction / specificTypes[0].Fraction > 0.4f)
-			return "Jumpstream/Handstream";
+			return "Jump/Handstream";
 
 		return pattern.ToString();
 	}

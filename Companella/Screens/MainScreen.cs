@@ -81,6 +81,7 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 	private BulkRateChangerPanel _bulkRateChangerPanel = null!;
 	private MarathonCreatorPanel _marathonCreatorPanel = null!;
 	private MapPackManagerPanel _mapPackManagerPanel = null!;
+	private DifficultySplitterPanel _difficultySplitterPanel = null!;
 
 	// Split tab containers for tutorial navigation
 	private SplitTabContainer _gameplaySplitContainer = null!;
@@ -564,6 +565,7 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 		_bulkRateChangerPanel = new BulkRateChangerPanel();
 		_marathonCreatorPanel = new MarathonCreatorPanel();
 		_mapPackManagerPanel = new MapPackManagerPanel();
+		_difficultySplitterPanel = new DifficultySplitterPanel();
 
 		// Wire up marathon creator events
 		_marathonCreatorPanel.CreateMarathonRequested += OnCreateMarathonRequested;
@@ -572,6 +574,9 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 		// Wire up map pack manager events
 		_mapPackManagerPanel.BuildMapPackRequested += OnBuildMapPackRequested;
 		_mapPackManagerPanel.RecalculateMsdRequested += OnRecalculateMapPackMsdRequested;
+
+		// Wire up difficulty splitter events
+		_difficultySplitterPanel.SplitRequested += OnSplitDifficultyRequested;
 
 		// Combine BPM Analysis and Normalize SV into one panel
 		var timingToolsContent = new FillFlowContainer
@@ -592,7 +597,8 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 			new SplitTabItem("Timing Tools", timingToolsContent),
 			new SplitTabItem("Bulk Rates", _bulkRateChangerPanel),
 			new SplitTabItem("Marathon", _marathonCreatorPanel),
-			new SplitTabItem("MapPack Manager", _mapPackManagerPanel)
+			new SplitTabItem("MapPack Manager", _mapPackManagerPanel),
+			new SplitTabItem("Difficulty Splitter", _difficultySplitterPanel)
 		})
 		{
 			RelativeSizeAxes = Axes.Both
@@ -787,6 +793,8 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 			_marathonCreatorPanel.SetEnabled(true);
 			_mapPackManagerPanel.SetCurrentBeatmap(_currentOsuFile);
 			_mapPackManagerPanel.SetEnabled(true);
+			_difficultySplitterPanel.SetCurrentBeatmap(_currentOsuFile);
+			_difficultySplitterPanel.SetEnabled(true);
 
 			// Get dominant BPM and pass to rate changer panel
 			var dominantBpm = GetDominantBpm(_currentOsuFile);
@@ -811,6 +819,8 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 			_marathonCreatorPanel.SetEnabled(false);
 			_mapPackManagerPanel.SetCurrentBeatmap(null);
 			_mapPackManagerPanel.SetEnabled(false);
+			_difficultySplitterPanel.SetCurrentBeatmap(null);
+			_difficultySplitterPanel.SetEnabled(false);
 		}
 	}
 
@@ -1610,6 +1620,48 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 		_bulkRateChangerPanel.SetEnabled(enabled);
 		_marathonCreatorPanel.SetEnabled(enabled);
 		_mapPackManagerPanel.SetEnabled(enabled);
+		_difficultySplitterPanel.SetEnabled(enabled);
+	}
+
+	private async void OnSplitDifficultyRequested(DifficultySplitterRequest request)
+	{
+		if (request.Pairs.Count == 0)
+			return;
+
+		_loadingOverlay.Show($"Splitting into {request.Pairs.Count} region(s)...");
+		SetAllPanelsEnabled(false);
+
+		try
+		{
+			var result = await DifficultySplitterService.SplitAsync(
+				request.Source,
+				request.Markers,
+				request.Pairs,
+				status => Schedule(() => { _loadingOverlay.UpdateStatus(status); }));
+
+			Schedule(() =>
+			{
+				_difficultySplitterPanel.ShowExportResult(result);
+
+				if (result.Success)
+				{
+					var firstOutput = result.PairResults.FirstOrDefault(r => r.Success)?.OutputPath;
+					if (firstOutput != null)
+						LoadBeatmap(firstOutput);
+				}
+			});
+		}
+		catch (Exception)
+		{
+		}
+		finally
+		{
+			Schedule(() =>
+			{
+				_loadingOverlay.Hide();
+				SetAllPanelsEnabled(true);
+			});
+		}
 	}
 
 	protected override void Update()
