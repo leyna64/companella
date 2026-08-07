@@ -183,7 +183,7 @@ public class DanConfigurationService : IDisposable
 			return null;
 
 		Logger.Info(
-			$"[DanConfig] Daniel SR={danielResult.StarRating:F4}, Dan={danielResult.DanLabel} ({danielResult.DanNumeric})");
+			$"[DanConfig] Daniel base SR={danielResult.BaseStarRating:F4}, pass 1 SR={danielResult.Pass1StarRating:F4}, eval SR={danielResult.StarRating:F4}, Dan={danielResult.DanLabel} ({danielResult.DanNumeric})");
 
 		return DanielClassificationMapper.ToClassificationResult(danielResult, msdScores, interludeRating);
 	}

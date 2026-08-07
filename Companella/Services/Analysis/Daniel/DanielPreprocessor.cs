@@ -29,35 +29,17 @@ internal static class DanielPreprocessor
 {
 	internal static DanielPreprocessResult Preprocess(IReadOnlyList<DanielNote> noteSeq, int keyCount)
 	{
-		var noteDict = new Dictionary<int, List<DanielNote>>();
-		foreach (var note in noteSeq)
-		{
-			if (!noteDict.TryGetValue(note.Column, out var list))
-			{
-				list = [];
-				noteDict[note.Column] = list;
-			}
-
-			list.Add(note);
-		}
-
-		var noteSeqByColumn = noteDict.Values
-			.OrderBy(notes => notes[0].Column)
-			.ToList();
-
-		var x = 0.3 * Math.Pow((64.5 - Math.Ceiling(DanielConstants.HardcodedOd * 3)) / 500.0, 0.5);
-		x = Math.Min(x, 0.6 * (x - 0.09) + 0.09);
-
+		var x = ComputeX();
 		var t = noteSeq.Count > 0 ? noteSeq.Max(n => n.Time) + 1 : 1;
+		return BuildResult(noteSeq, keyCount, x, t);
+	}
 
-		return new DanielPreprocessResult
-		{
-			X = x,
-			KeyCount = keyCount,
-			T = t,
-			NoteSeq = noteSeq.ToList(),
-			NoteSeqByColumn = noteSeqByColumn
-		};
+	internal static DanielPreprocessResult PreprocessPass(
+		IReadOnlyList<DanielNote> noteSeq,
+		DanielPreprocessResult template,
+		int passT)
+	{
+		return BuildResult(noteSeq, template.KeyCount, template.X, passT);
 	}
 
 	internal static DanielPreprocessResult Preprocess(IReadOnlyList<HitObject> hitObjects, int keyCount, float rate)
@@ -70,13 +52,58 @@ internal static class DanielPreprocessor
 			noteSeq.Add(new DanielNote(hit.Column, time));
 		}
 
-		noteSeq.Sort((a, b) =>
-		{
-			var timeCompare = a.Time.CompareTo(b.Time);
-			return timeCompare != 0 ? timeCompare : a.Column.CompareTo(b.Column);
-		});
-
+		noteSeq.Sort(CompareNotes);
 		return Preprocess(noteSeq, keyCount);
+	}
+
+	private static DanielPreprocessResult BuildResult(
+		IReadOnlyList<DanielNote> noteSeq,
+		int keyCount,
+		double x,
+		int t)
+	{
+		var noteSeqByColumn = BuildNoteSeqByColumn(noteSeq, keyCount);
+		var timeline = noteSeq is List<DanielNote> list ? list : noteSeq.ToList();
+
+		return new DanielPreprocessResult
+		{
+			X = x,
+			KeyCount = keyCount,
+			T = t,
+			NoteSeq = timeline,
+			NoteSeqByColumn = noteSeqByColumn
+		};
+	}
+
+	internal static List<List<DanielNote>> BuildNoteSeqByColumn(IReadOnlyList<DanielNote> noteSeq, int keyCount)
+	{
+		var columns = new List<DanielNote>[keyCount];
+		for (var col = 0; col < keyCount; col++)
+			columns[col] = [];
+
+		foreach (var note in noteSeq)
+		{
+			if (note.Column >= 0 && note.Column < keyCount)
+				columns[note.Column].Add(note);
+		}
+
+		var noteSeqByColumn = new List<List<DanielNote>>(keyCount);
+		for (var col = 0; col < keyCount; col++)
+			noteSeqByColumn.Add(columns[col]);
+
+		return noteSeqByColumn;
+	}
+
+	private static double ComputeX()
+	{
+		var x = 0.3 * Math.Pow((64.5 - Math.Ceiling(DanielConstants.HardcodedOd * 3)) / 500.0, 0.5);
+		return Math.Min(x, 0.6 * (x - 0.09) + 0.09);
+	}
+
+	private static int CompareNotes(DanielNote a, DanielNote b)
+	{
+		var timeCompare = a.Time.CompareTo(b.Time);
+		return timeCompare != 0 ? timeCompare : a.Column.CompareTo(b.Column);
 	}
 
 	private static int ApplyRate(double timeMs, float rate)

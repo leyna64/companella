@@ -140,56 +140,58 @@ public static class DanielVerificationHarness
 				Passed = false,
 				Message = result.ErrorMessage ?? "Invalid result",
 				ExpectedSr = entry.Sr,
-				ActualSr = result.StarRating
+				ActualSr = result.BaseStarRating
 			};
 		}
 
-		var srDiff = Math.Abs(result.StarRating - entry.Sr);
+		var srDiff = Math.Abs(result.BaseStarRating - entry.Sr);
 		if (srDiff > _srTolerance)
 		{
 			return new VerificationResult
 			{
 				MapPath = entry.Path,
 				Passed = false,
-				Message = $"SR mismatch: expected {entry.Sr}, got {result.StarRating} (diff {srDiff})",
+				Message = $"SR mismatch: expected {entry.Sr}, got {result.BaseStarRating} (diff {srDiff})",
 				ExpectedSr = entry.Sr,
-				ActualSr = result.StarRating
+				ActualSr = result.BaseStarRating
 			};
 		}
 
-		if (!string.Equals(result.DanLabel, entry.DanLabel, StringComparison.Ordinal))
+		var (expectedDanLabel, expectedDanNumeric) = DanielDanMapper.GetDanFromDiff(result.BaseStarRating);
+		if (!string.Equals(expectedDanLabel, entry.DanLabel, StringComparison.Ordinal))
 		{
 			return new VerificationResult
 			{
 				MapPath = entry.Path,
 				Passed = false,
-				Message = $"Dan label mismatch: expected '{entry.DanLabel}', got '{result.DanLabel}'",
+				Message = $"Dan label mismatch: expected '{entry.DanLabel}', got '{expectedDanLabel}'",
 				ExpectedSr = entry.Sr,
-				ActualSr = result.StarRating
+				ActualSr = result.BaseStarRating
 			};
 		}
 
-		if (!DanNumericMatches(result.DanNumeric, entry.DanNumeric))
+		if (!DanNumericMatches(expectedDanNumeric, entry.DanNumeric))
 		{
 			return new VerificationResult
 			{
 				MapPath = entry.Path,
 				Passed = false,
-				Message = $"Dan numeric mismatch: expected '{entry.DanNumeric}', got '{result.DanNumeric}'",
+				Message = $"Dan numeric mismatch: expected '{entry.DanNumeric}', got '{expectedDanNumeric}'",
 				ExpectedSr = entry.Sr,
-				ActualSr = result.StarRating
+				ActualSr = result.BaseStarRating
 			};
 		}
 
-		if (result.IsBelowAlphaThreshold != entry.BelowAlpha)
+		var belowAlpha = DanielDanMapper.IsBelowAlphaThreshold(result.BaseStarRating);
+		if (belowAlpha != entry.BelowAlpha)
 		{
 			return new VerificationResult
 			{
 				MapPath = entry.Path,
 				Passed = false,
-				Message = $"Below-alpha mismatch: expected {entry.BelowAlpha}, got {result.IsBelowAlphaThreshold}",
+				Message = $"Below-alpha mismatch: expected {entry.BelowAlpha}, got {belowAlpha}",
 				ExpectedSr = entry.Sr,
-				ActualSr = result.StarRating
+				ActualSr = result.BaseStarRating
 			};
 		}
 
@@ -198,7 +200,7 @@ public static class DanielVerificationHarness
 			MapPath = entry.Path,
 			Passed = true,
 			ExpectedSr = entry.Sr,
-			ActualSr = result.StarRating
+			ActualSr = result.BaseStarRating
 		};
 	}
 
