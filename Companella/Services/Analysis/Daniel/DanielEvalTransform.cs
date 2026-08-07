@@ -10,7 +10,7 @@ internal static class DanielEvalTransform
 {
 	/// <summary>
 	/// evalSr = baseSr - (max(0, 60s - duration) / 60s) * (baseSr - pass1Sr)
-	/// 60s+: baseSr, 30s: average, shorter maps approach pass1Sr.
+	/// 60s+: baseSr, 30s: average, shorter maps approach baseSr.
 	/// </summary>
 	internal static double Apply(double baseSr, double pass1Sr, int originalDurationMs)
 	{
