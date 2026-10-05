@@ -10,11 +10,16 @@ internal static class SessionPlayMemoryHelper
 {
 	internal readonly record struct PlayStats(double Accuracy, int Misses, int TotalHits, int Score);
 
-	internal static PlayStats ReadPlayStats(StructuredOsuMemoryReader memoryReader)
+	internal static PlayStats ReadPlayStats(StructuredOsuMemoryReader memoryReader, bool resultsScreen = false)
 	{
+		if (resultsScreen)
+		{
+			var result = ReadFromResultsScreen(memoryReader);
+			if (result.TotalHits > 0) return result;
+		}
 		var player = new Player();
 		if (!memoryReader.TryRead(player))
-			return ReadFromResultsScreen(memoryReader);
+			return default;
 
 		return BuildStats(player);
 	}
@@ -28,14 +33,13 @@ internal static class SessionPlayMemoryHelper
 		return BuildStats(resultsScreen);
 	}
 
-	private static PlayStats BuildStats(OsuMemoryDataProvider.OsuMemoryModels.Abstract.RulesetPlayData data)
+	internal static PlayStats BuildStats(OsuMemoryDataProvider.OsuMemoryModels.Abstract.RulesetPlayData data)
 	{
 		var misses = data.HitMiss;
 		var totalHits = data.Hit300 + data.Hit100 + data.Hit50 + data.HitGeki + data.HitKatu + misses;
-		var accuracy = data is Player player ? player.Accuracy : 0;
-
-		if (accuracy <= 0 && totalHits > 0)
-			accuracy = ComputeManiaAccuracy(data.HitGeki, data.Hit300, data.HitKatu, data.Hit100, data.Hit50, misses);
+		// Empty/reset player structures can report 100%. They are not evidence of a score.
+		if (data.Mode != 3 || totalHits == 0) return default;
+		var accuracy = ComputeManiaAccuracy(data.HitGeki, data.Hit300, data.HitKatu, data.Hit100, data.Hit50, misses);
 
 		return new PlayStats(accuracy, misses, totalHits, data.Score);
 	}

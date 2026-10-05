@@ -239,6 +239,8 @@ public partial class SessionPanel : CompositeDrawable
 		_sessionDropdown.Current.ValueChanged += e => OnSessionSelected(e.NewValue);
 
 		TrackerService.PlayRecorded += OnPlayRecorded;
+		TrackerService.PlayUpdated += OnPlayRecorded;
+		ReplayWatcherService.ReplayMatched += OnReplayMatched;
 		TrackerService.SessionStarted += OnSessionStarted;
 		TrackerService.SessionStopped += OnSessionStopped;
 
@@ -459,6 +461,18 @@ public partial class SessionPanel : CompositeDrawable
 		});
 	}
 
+	private void OnReplayMatched(object? sender, ReplayMatchedEventArgs args)
+	{
+		Schedule(() =>
+		{
+			if (_currentMode.Value == SessionMode.History && _selectedSession != null)
+			{
+				_selectedSession = DatabaseService.GetSessionById(_selectedSession.Id);
+				RefreshHistoryPlays();
+			}
+		});
+	}
+
 	/// <summary>
 	/// Called when a session starts.
 	/// </summary>
@@ -577,6 +591,8 @@ public partial class SessionPanel : CompositeDrawable
 		if (TrackerService != null)
 		{
 			TrackerService.PlayRecorded -= OnPlayRecorded;
+			TrackerService.PlayUpdated -= OnPlayRecorded;
+			ReplayWatcherService.ReplayMatched -= OnReplayMatched;
 			TrackerService.SessionStarted -= OnSessionStarted;
 			TrackerService.SessionStopped -= OnSessionStopped;
 		}

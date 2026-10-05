@@ -117,6 +117,9 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 
 	// Window decoration
 	private CustomTitleBar _titleBar = null!;
+	private ManiaTrackerAccountMenu _trackerAccountMenu = null!;
+	private ChainedScrollContainer _settingsScroll = null!;
+	private ManiaTrackerSettingsPanel _trackerSettings = null!;
 
 	// Background box for transparency control
 	private Box _backgroundBox = null!;
@@ -193,6 +196,7 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 				Origin = Anchor.TopLeft,
 				Alpha = 1f // Visible by default, will be hidden in overlay mode
 			},
+			_trackerAccountMenu = new ManiaTrackerAccountMenu { ManageAccountRequested = OpenTrackerSettings },
 			// Loading overlay (on top of everything)
 			_loadingOverlay = new LoadingOverlay(),
 			// Update dialog (topmost)
@@ -611,6 +615,12 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 		};
 	}
 
+	private void OpenTrackerSettings()
+	{
+		_tabContainer.SelectTab(2);
+		Schedule(() => _settingsScroll.ScrollTo(_trackerSettings));
+	}
+
 	private Container CreateSettingsTab()
 	{
 		_quickSetupPanel = new QuickSetupPanel
@@ -624,7 +634,7 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 		return new Container
 		{
 			RelativeSizeAxes = Axes.Both,
-			Child = new ChainedScrollContainer
+			Child = _settingsScroll = new ChainedScrollContainer
 			{
 				RelativeSizeAxes = Axes.Both,
 				ClampExtension = 200,
@@ -648,6 +658,7 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 						new ReplayAnalysisSettingsPanel { RelativeSizeAxes = Axes.X },
 						new SettingsGroupHeader("osu! Integration", "Paths and game connection"),
 						new OsuDirectorySettingsPanel { RelativeSizeAxes = Axes.X },
+						_trackerSettings = new ManiaTrackerSettingsPanel { RelativeSizeAxes = Axes.X },
 						new SettingsGroupHeader("Difficulty & Analysis", "Calculators and map indexing"),
 						new MinaCalcVersionPanel { RelativeSizeAxes = Axes.X },
 						new RiceDanCalculatorPanel { RelativeSizeAxes = Axes.X },
@@ -1683,6 +1694,12 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 			else
 				// If overlay service not available yet, keep it visible
 				_titleBar.Alpha = 1f;
+		}
+
+		if (_trackerAccountMenu != null && _titleBar != null)
+		{
+			_trackerAccountMenu.Alpha = _titleBar.Alpha;
+			if (_titleBar.Alpha == 0) _trackerAccountMenu.CloseMenu();
 		}
 
 		// Periodically check for beatmap changes

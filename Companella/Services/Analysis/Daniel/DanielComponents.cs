@@ -109,7 +109,7 @@ internal static class DanielComponents
 			for (var k = 0; k < keyCount; k++)
 			{
 				var weight = 1.0 / deltaKs[k][i];
-				num += Math.Pow(Math.Max(jbarKs[k][i], 0), 5) * weight;
+				num += Math.Pow(Math.Max(jbarKs[k][i], 0), 5.00) * weight;
 				den += weight;
 			}
 

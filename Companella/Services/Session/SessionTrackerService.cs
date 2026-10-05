@@ -105,6 +105,29 @@ public class SessionTrackerService : IDisposable
 	/// </summary>
 	public event EventHandler<SessionPlayResult>? PlayRecorded;
 
+	/// <summary>Raised when a saved replay becomes available for an existing live play.</summary>
+	public event EventHandler<SessionPlayResult>? PlayUpdated;
+
+	/// <summary>Attaches a replay to exactly one matching live play, without creating a second score.</summary>
+	internal void AttachReplay(Services.Integrations.ManiaTracker.ManiaTrackerReplay replay, string path, string hash)
+	{
+		SessionPlayResult play;
+		lock (_lockObj)
+		{
+			var matches = _plays.Where(x => x.Status == PlayStatus.Completed &&
+				SessionReplayMatcher.Matches(x.BeatmapHash, x.RecordedAt, replay)).ToArray();
+			if (matches.Length != 1 || matches[0].HasReplay) return;
+			play = matches[0];
+			play.ReplayPath = path;
+			play.ReplayHash = hash;
+			var counts = replay.Judgements;
+			play.Accuracy = SessionPlayMemoryHelper.ComputeManiaAccuracy(counts[3], counts[0], counts[4], counts[1], counts[2], counts[5]);
+			play.Misses = counts[5];
+			play.UpdateGrade();
+		}
+		PlayUpdated?.Invoke(this, play);
+	}
+
 	/// <summary>
 	/// Event raised when a play ends and the player paused during it.
 	/// The int parameter is the number of pauses.
@@ -327,20 +350,10 @@ public class SessionTrackerService : IDisposable
 				showPlayingInterface = generalData.ShowPlayingInterface;
 
 				// Also read player data to track accuracy and misses during gameplay
-				var player = new Player();
-				if (_memoryReader.TryRead(player))
-				{
-					playerAccuracy = player.Accuracy;
-					missCount = player.HitMiss;
-					totalHits = player.Hit300 + player.Hit100 + player.Hit50 + player.HitGeki + player.HitKatu +
-								missCount;
-
-					if (playerAccuracy <= 0 && totalHits > 0)
-					{
-						playerAccuracy = SessionPlayMemoryHelper.ComputeManiaAccuracy(
-							player.HitGeki, player.Hit300, player.HitKatu, player.Hit100, player.Hit50, missCount);
-					}
-				}
+				var stats = SessionPlayMemoryHelper.ReadPlayStats(_memoryReader, currentStatus is 7 or 14);
+				playerAccuracy = stats.Accuracy;
+				missCount = stats.Misses;
+				totalHits = stats.TotalHits;
 			}
 			catch (Exception ex)
 			{
@@ -402,7 +415,7 @@ public class SessionTrackerService : IDisposable
 				Logger.Info($"[Session] Status changed: {_previousStatus} -> {currentStatus}");
 
 			// Track accuracy and misses while a play is in progress (including the results screen)
-			if (_wasPlaying && !_playEndHandled)
+			if (_wasPlaying && !_playEndHandled && totalHits >= _currentTotalHits)
 			{
 				if (playerAccuracy > 0) _lastAccuracy = playerAccuracy;
 
@@ -419,10 +432,11 @@ public class SessionTrackerService : IDisposable
 
 				var beatmapPath = _processDetector.ResolveBeatmapPath(_currentPlayingBeatmap);
 				var playRate = _currentPlayRate;
+				var finishedAt = DateTime.UtcNow;
 				CompleteCurrentPlay(PlayStatus.Completed);
 
 				if (!string.IsNullOrEmpty(beatmapPath))
-					ResultsScreenEntered?.Invoke(this, new ResultsScreenEventArgs(beatmapPath, playRate));
+					ResultsScreenEntered?.Invoke(this, new ResultsScreenEventArgs(beatmapPath, playRate, false, finishedAt));
 			}
 			// Detect transition from playing to song select or other non-results exit
 			else if (_wasPlaying && !isInGameplay && !isResultsScreen)
@@ -585,13 +599,13 @@ public class SessionTrackerService : IDisposable
 			SessionPlayMemoryHelper.PlayStats stats;
 			lock (HitErrorReaderService.MemoryReaderLock)
 			{
-				stats = SessionPlayMemoryHelper.ReadPlayStats(_memoryReader);
+				stats = SessionPlayMemoryHelper.ReadPlayStats(_memoryReader, status == PlayStatus.Completed);
 			}
 
 			var accuracy = _lastAccuracy;
 			var misses = _currentMissCount;
 
-			if (stats.Accuracy > 0)
+			if (stats.TotalHits > 0 && stats.TotalHits >= _currentTotalHits)
 			{
 				accuracy = stats.Accuracy;
 				Logger.Info($"[Session] Read accuracy from memory: {accuracy:F2}%");
@@ -612,11 +626,6 @@ public class SessionTrackerService : IDisposable
 				return;
 			}
 
-			if (accuracy <= 0 && stats.TotalHits > 0)
-			{
-				Logger.Info("[Session] Could not resolve accuracy despite hit counts being present - skipping play");
-				return;
-			}
 
 			var beatmapPath = _processDetector.ResolveBeatmapPath(_currentPlayingBeatmap);
 
@@ -655,6 +664,7 @@ public class SessionTrackerService : IDisposable
 	private void AnalyzeAndRecordPlay(string beatmapPath, double accuracy, int misses, int pauseCount,
 		PlayStatus status, float rate = 1.0f)
 	{
+		var recordedAt = DateTime.UtcNow;
 		float highestMsd = 0;
 		var dominantSkillset = "unknown";
 		var beatmapHash = "";
@@ -709,7 +719,7 @@ public class SessionTrackerService : IDisposable
 			pauseCount,
 			status,
 			sessionTime,
-			DateTime.UtcNow,
+			recordedAt,
 			highestMsd,
 			dominantSkillset,
 			rate
@@ -774,10 +784,14 @@ public class ResultsScreenEventArgs : EventArgs
 	/// </summary>
 	public bool IsReplayView { get; }
 
-	public ResultsScreenEventArgs(string beatmapPath, float rate, bool isReplayView = false)
+	/// <summary>The UTC result transition time used to reject older replay files.</summary>
+	public DateTime EnteredAtUtc { get; }
+
+	public ResultsScreenEventArgs(string beatmapPath, float rate, bool isReplayView = false, DateTime? enteredAtUtc = null)
 	{
 		BeatmapPath = beatmapPath;
 		Rate = rate;
 		IsReplayView = isReplayView;
+		EnteredAtUtc = enteredAtUtc ?? DateTime.UtcNow;
 	}
 }

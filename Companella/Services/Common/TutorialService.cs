@@ -294,7 +294,22 @@ public class TutorialService
 				TutorialDialogPosition.Top
 			),
 
-			// Step 14: Quick Setup & Completion
+			// Mania Tracker account and optional automatic uploads
+			new(
+				"Mania Tracker",
+				"Use 'Mania Tracker · Sign in' in the top bar to connect securely in your browser. " +
+				"Once connected, click your username to see upload status, manage your account, or disconnect.\n\n" +
+				"In Settings > Mania Tracker, choose 'Enable uploads' to send new completed osu!stable mania plays. " +
+				"No practice session is required. Uploads share your original replay (including player name and inputs) " +
+				"and beatmap with mania-tracker.com. Partner ratings are experimental.\n\n" +
+				"If a play is waiting for its replay, save it from the osu! results screen. " +
+				"You can pause uploads anytime; pending files stay on this device. This feature does not support osu!lazer.",
+				2,
+				-1,
+				TutorialDialogPosition.Bottom
+			),
+
+			// Quick Setup & Completion
 			new(
 				"Quick Setup",
 				"Before you start, let's set up session tracking!\n\n" +

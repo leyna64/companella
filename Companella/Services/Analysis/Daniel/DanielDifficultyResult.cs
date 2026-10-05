@@ -14,9 +14,19 @@ public sealed class DanielDifficultyResult
 	public bool IsValid { get; init; }
 
 	/// <summary>
-	/// Daniel star rating used for dan mapping.
+	/// Daniel star rating used for dan mapping (duration-weighted blend of pass 0 and pass 1).
 	/// </summary>
 	public double StarRating { get; init; }
+
+	/// <summary>
+	/// Single-pass Daniel SR on the original map (pass 0).
+	/// </summary>
+	public double BaseStarRating { get; init; }
+
+	/// <summary>
+	/// Daniel SR on pass 1 (60s min-duration reflection crop) before eval averaging.
+	/// </summary>
+	public double Pass1StarRating { get; init; }
 
 	/// <summary>
 	/// Greek-letter dan label (e.g. "Gamma Mid", "&lt;Alpha Low").

@@ -3,6 +3,7 @@
 
 using Companella.Models.Beatmap;
 using Companella.Services.Beatmap;
+using Companella.Services.Common;
 
 namespace Companella.Services.Analysis.Daniel;
 
@@ -76,10 +77,17 @@ public static class DanielDifficultyService
 
 	private static DanielDifficultyResult BuildResult(DanielPreprocessResult preprocess)
 	{
-		var srResult = DanielStarRatingCalculator.Calculate(preprocess);
-		var factorAverages = DanielComponents.FactorAverages(srResult.AllCorners, srResult.Factors);
+		var rating = DanielStarRatingCalculator.Calculate(preprocess);
+		var evalSr = DanielEvalTransform.Apply(
+			rating.BaseStarRating,
+			rating.Pass1StarRating,
+			rating.OriginalDurationMs);
+		var factorAverages = DanielComponents.FactorAverages(rating.AllCorners, rating.Factors);
 
-		var (danLabel, danNumeric) = DanielDanMapper.GetDanFromDiff(srResult.StarRating);
+		Logger.Debug(
+			$"[DanielPass] eval durationMs={rating.OriginalDurationMs} baseSR={rating.BaseStarRating:F4} pass1SR={rating.Pass1StarRating:F4} evalSR={evalSr:F4}");
+
+		var (danLabel, danNumeric) = DanielDanMapper.GetDanFromDiff(evalSr);
 		double? danNumericValue = double.TryParse(
 			danNumeric,
 			System.Globalization.NumberStyles.Float,
@@ -91,11 +99,13 @@ public static class DanielDifficultyService
 		return new DanielDifficultyResult
 		{
 			IsValid = true,
-			StarRating = srResult.StarRating,
+			StarRating = evalSr,
+			BaseStarRating = rating.BaseStarRating,
+			Pass1StarRating = rating.Pass1StarRating,
 			DanLabel = danLabel,
 			DanNumeric = danNumeric,
 			DanNumericValue = danNumericValue,
-			IsBelowAlphaThreshold = DanielDanMapper.IsBelowAlphaThreshold(srResult.StarRating),
+			IsBelowAlphaThreshold = DanielDanMapper.IsBelowAlphaThreshold(evalSr),
 			FactorAverages = factorAverages
 		};
 	}

@@ -61,6 +61,7 @@ public partial class CompanellaGame : Game
 	private SquirrelUpdaterService _autoUpdaterService = null!;
 	private SessionDatabaseService _sessionDatabaseService = null!;
 	private SessionTrackerService _sessionTrackerService = null!;
+	private Services.Integrations.ManiaTracker.ManiaTrackerService _maniaTrackerService = null!;
 
 	// Skills analysis services
 	private MapsDatabaseService _mapsDatabaseService = null!;
@@ -157,6 +158,8 @@ public partial class CompanellaGame : Game
 		_autoUpdaterService = new SquirrelUpdaterService();
 		_sessionDatabaseService = new SessionDatabaseService();
 		_sessionTrackerService = new SessionTrackerService(_processDetector, _sessionDatabaseService, _aptabaseService);
+		_maniaTrackerService = new Services.Integrations.ManiaTracker.ManiaTrackerService(_processDetector);
+		_maniaTrackerService.Start();
 		_sessionTrackerService.PlayEndedWithPauses += OnPlayEndedWithPauses;
 		_sessionTrackerService.ResultsScreenEntered += OnResultsScreenEntered;
 		_sessionTrackerService.ResultsScreenExited += OnResultsScreenExited;
@@ -180,8 +183,7 @@ public partial class CompanellaGame : Game
 
 		// Replay file watcher for matching replays to session plays
 		_replayFileWatcherService =
-			new ReplayFileWatcherService(_processDetector, _sessionDatabaseService, _scoreImportService);
-		_replayFileWatcherService.StartWatching();
+			new ReplayFileWatcherService(_processDetector, _sessionDatabaseService, _scoreImportService, _sessionTrackerService);
 		_skillsTrendAnalyzer = new SkillsTrendAnalyzer(_sessionDatabaseService);
 		_mapMmrCalculator = new MapMmrCalculator(_mapsDatabaseService);
 		_mapRecommendationService =
@@ -204,6 +206,7 @@ public partial class CompanellaGame : Game
 		_dependencies.CacheAs(_autoUpdaterService);
 		_dependencies.CacheAs(_sessionDatabaseService);
 		_dependencies.CacheAs(_sessionTrackerService);
+		_dependencies.CacheAs(_maniaTrackerService);
 		_dependencies.CacheAs(_replayFileWatcherService);
 		_dependencies.CacheAs(_mapsDatabaseService);
 		_dependencies.CacheAs(_skillsTrendAnalyzer);
@@ -314,6 +317,9 @@ public partial class CompanellaGame : Game
 		Task.Run(async () =>
 		{
 			await _userSettingsService.InitializeAsync();
+			_processDetector.SetSettingsService(_userSettingsService);
+			_replayFileWatcherService.StartWatching();
+			_replayFileWatcherService.CheckForMissingReplays();
 			await _danConfigService.InitializeAsync();
 
 			// Apply analytics setting from user preferences (GDPR compliance)
@@ -927,7 +933,11 @@ public partial class CompanellaGame : Game
 					// For fresh plays only: Try to find replay file as fallback
 					Logger.Info("[TimingDeviation] Memory read failed, trying replay file fallback...");
 					Thread.Sleep(1000);
-					var replayResult = _replayParserService.FindAndParseRecentReplay(120);
+					var directory = _processDetector.GetOsuDirectory();
+					var currentHash = ReplayParserService.GetBeatmapHash(e.BeatmapPath);
+					var exactReplayPath = directory == null || currentHash == null ? null :
+						SessionReplayMatcher.Find(directory, currentHash, e.EnteredAtUtc);
+					var replayResult = exactReplayPath == null ? null : ReplayParserService.ParseReplay(exactReplayPath);
 
 					if (replayResult is not { } replay)
 					{
@@ -1644,6 +1654,8 @@ public partial class CompanellaGame : Game
 	/// </summary>
 	private void CheckOsuProcessStatus()
 	{
+		if (!_replayFileWatcherService.IsWatching && !string.IsNullOrEmpty(_processDetector.GetOsuDirectory()))
+			_replayFileWatcherService.StartWatching();
 		var isOsuRunning = _processDetector.IsOsuRunning;
 
 		// osu! just started
@@ -1883,6 +1895,7 @@ public partial class CompanellaGame : Game
 		// Unsubscribe from session tracker events
 		if (_sessionTrackerService != null) _sessionTrackerService.PlayEndedWithPauses -= OnPlayEndedWithPauses;
 
+		_maniaTrackerService?.Dispose();
 		_processDetector?.Dispose();
 		_overlayService?.Dispose();
 		_hotkeyService?.Dispose();
