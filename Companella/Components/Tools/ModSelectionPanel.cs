@@ -2,6 +2,7 @@ using Companella.Components.Layout;
 using Companella.Components.Misc;
 using Companella.Components.Settings;
 using Companella.Mods;
+using Companella.Mods.Parameters;
 using Companella.Services.Tools;
 using osu.Framework.Allocation;
 using osu.Framework.Extensions.Color4Extensions;
@@ -35,7 +36,8 @@ public partial class ModSelectionPanel : CompositeDrawable
 	private IMod? _selectedMod;
 	private StyledButton? _selectedButton;
 	private bool _enabled;
-	private readonly List<ParameterSlider> _parameterSliders = new();
+	private List<ParameterSlider> _parameterSliders = new();
+	private List<ParameterTextBox> _parameterTextBoxes = new();
 
 	private readonly Color4 _accentColor = new(255, 102, 170, 255);
 	private readonly Color4 _categoryHeaderColor = new(180, 180, 180, 255);
@@ -237,15 +239,26 @@ public partial class ModSelectionPanel : CompositeDrawable
 	{
 		_parametersContainer.Clear();
 		_parameterSliders.Clear();
+		_parameterTextBoxes.Clear();
 
 		if (mod.Parameters.Count == 0)
 			return;
 
 		foreach (var param in mod.Parameters)
 		{
-			var slider = new ParameterSlider(param, _accentColor);
-			_parameterSliders.Add(slider);
-			_parametersContainer.Add(slider);
+			// check if string parameter
+			if (param is StringModParameter stringParam)
+			{
+				var textBox = new ParameterTextBox(stringParam, _accentColor);
+				_parameterTextBoxes.Add(textBox);
+				_parametersContainer.Add(textBox);
+			}
+			else
+			{
+				var slider = new ParameterSlider(param, _accentColor);
+				_parameterSliders.Add(slider);
+				_parametersContainer.Add(slider);
+			}
 		}
 	}
 
@@ -287,8 +300,9 @@ public partial class ModSelectionPanel : CompositeDrawable
 		_selectedModDescription.Text = "Select a mod from the list above to apply it.";
 		_applyButton.Enabled = false;
 
-		// Clear parameter sliders
+		// Clear parameter controls
 		_parametersContainer.Clear();
 		_parameterSliders.Clear();
+		_parameterTextBoxes.Clear();
 	}
 }

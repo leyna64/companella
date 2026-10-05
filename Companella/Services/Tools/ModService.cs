@@ -237,7 +237,7 @@ public class ModService
 	{
 		var directory = osuFile.DirectoryPath;
 		var originalBaseName = Path.GetFileNameWithoutExtension(osuFile.FilePath);
-		var modSuffix = $"[+{mod.Icon}]";
+		var modSuffix = mod is LaneSwapMod laneSwapMod ? $"[{laneSwapMod.GetLaneOrder()}]" : $"[+{mod.Icon}]";
 
 		// Try to extract the part before the difficulty name in brackets
 		var match = Regex.Match(originalBaseName, @"^(.+?)\s*\[(.+)\]$");
@@ -282,7 +282,7 @@ public class ModService
 		// Read original file
 		var lines = await File.ReadAllLinesAsync(originalFile.FilePath);
 		var result = new List<string>();
-		var modSuffix = $"[+{mod.Icon}]";
+		var modSuffix = mod is LaneSwapMod laneSwapMod ? $"[{laneSwapMod.GetLaneOrder()}]" : $"[+{mod.Icon}]";
 
 		var inTimingPointsSection = false;
 		var timingPointsWritten = false;
