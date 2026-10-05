@@ -34,6 +34,8 @@ public partial class SessionScoreRow : CompositeDrawable, IHasTooltip
 	[Resolved] private IRenderer Renderer { get; set; } = null!;
 
 	[Resolved] private UserSettingsService UserSettings { get; set; } = null!;
+	[Resolved] private Services.Integrations.ManiaTracker.ManiaTrackerService ManiaTracker { get; set; } = null!;
+	private string? _maniaTrackerStatus;
 
 	private Box _background = null!;
 	private Container _thumbnailContainer = null!;
@@ -84,7 +86,7 @@ public partial class SessionScoreRow : CompositeDrawable, IHasTooltip
 		{
 			var leftAction = _play.HasReplay ? "Left-click: Analyze replay" : "Left-click: No replay available";
 			var rightAction = "Right-click: Analyze beatmap";
-			return $"{leftAction}\n{rightAction}";
+			return $"{leftAction}\n{rightAction}" + (_maniaTrackerStatus == null ? "" : "\n" + _maniaTrackerStatus);
 		}
 	}
 
@@ -280,6 +282,20 @@ public partial class SessionScoreRow : CompositeDrawable, IHasTooltip
 
 		// Load thumbnail asynchronously
 		LoadThumbnailAsync(osuFile);
+		var trackerText = new MarqueeText
+		{
+			Anchor = Anchor.BottomLeft, Origin = Anchor.BottomLeft,
+			Position = new Vector2(42, -3), Width = 300, Height = 13,
+			Font = new FontUsage("", 11), Colour = StyledButton.Theme.MutedLabel
+		};
+		AddInternal(trackerText);
+		Scheduler.AddDelayed(() =>
+		{
+			_maniaTrackerStatus = ManiaTracker.DescribeSessionPlay(_play.BeatmapHash, _play.RecordedAt);
+			trackerText.Text = _maniaTrackerStatus ?? "";
+			trackerText.Alpha = _maniaTrackerStatus == null ? 0 : 1;
+			Height = _maniaTrackerStatus == null ? 60 : 78;
+		}, 1000, true);
 	}
 
 	/// <summary>

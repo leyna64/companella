@@ -45,7 +45,7 @@ public partial class TutorialPanel : CompositeDrawable
 				{
 					SettingsLayout.CreateSection(
 						"App Tutorial",
-						"New to Companella? The tutorial walks you through rate changing, session tracking, skills analysis, and mapping tools.",
+						"New to Companella? The tutorial walks you through rate changing, session tracking, skills analysis, mapping tools, and Mania Tracker uploads.",
 						CreateActionButton("Show Tutorial", StyledButton.Theme.Accent, out _showTutorialButton)),
 					SettingsLayout.CreateSection(
 						"Quick Setup",
