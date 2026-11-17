@@ -1,5 +1,6 @@
 using System.Globalization;
 using Companella.Components.Misc;
+using Companella.Components.Settings;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
@@ -8,6 +9,7 @@ using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.UserInterface;
 using osuTK;
 using osuTK.Graphics;
+using TextBox = osu.Framework.Graphics.UserInterface.TextBox;
 
 namespace Companella.Components.Tools;
 
@@ -16,10 +18,15 @@ namespace Companella.Components.Tools;
 /// </summary>
 public partial class OffsetInputPanel : CompositeDrawable
 {
+	private const float _rowHeight = 32f;
+	private const float _stepButtonWidth = 44f;
+	private const float _inputWidth = 72f;
+	private const float _applyButtonWidth = 88f;
+
 	private BasicTextBox _offsetTextBox = null!;
-	private FunctionButton _applyButton = null!;
-	private FunctionButton _plusButton = null!;
-	private FunctionButton _minusButton = null!;
+	private StyledButton _applyButton = null!;
+	private StyledButton _plusButton = null!;
+	private StyledButton _minusButton = null!;
 
 	public event Action<double>? ApplyOffsetClicked;
 
@@ -34,124 +41,120 @@ public partial class OffsetInputPanel : CompositeDrawable
 	[BackgroundDependencyLoader]
 	private void load()
 	{
-		InternalChildren = new Drawable[]
+		var content = new FillFlowContainer
 		{
-			new FillFlowContainer
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 10),
+			Children = new Drawable[]
 			{
-				AutoSizeAxes = Axes.Both,
-				Direction = FillDirection.Vertical,
-				Spacing = new Vector2(0, 8),
-				Children = new Drawable[]
+				SettingsLayout.CreateHint("Adjust the universal offset for all hit objects in the loaded beatmap."),
+				new FillFlowContainer
 				{
-					new SpriteText
+					AutoSizeAxes = Axes.Both,
+					Direction = FillDirection.Horizontal,
+					Spacing = new Vector2(8, 0),
+					Children = new Drawable[]
 					{
-						Text = "Universal Offset",
-						Font = new FontUsage("", 15, "Bold"),
-						Colour = new Color4(180, 180, 180, 255)
-					},
-					new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Horizontal,
-						Spacing = new Vector2(8, 0),
-						Children = new Drawable[]
+						_minusButton = new StyledButton("-10", StyledButtonAppearance.Muted)
 						{
-							_minusButton = new FunctionButton("-10")
+							Size = new Vector2(_stepButtonWidth, _rowHeight),
+							FontSize = 14,
+							Bold = false,
+							TooltipText = "Decrease offset by 10ms"
+						},
+						new FillFlowContainer
+						{
+							AutoSizeAxes = Axes.Both,
+							Direction = FillDirection.Horizontal,
+							Spacing = new Vector2(6, 0),
+							Children = new Drawable[]
 							{
-								Width = 45,
-								Height = 32,
-								TooltipText = "Decrease offset by 10ms"
-							},
-							new Container
-							{
-								Width = 90,
-								Height = 32,
-								Masking = true,
-								CornerRadius = 4,
-								Children = new Drawable[]
+								new Container
 								{
-									new Box
+									Size = new Vector2(_inputWidth, _rowHeight),
+									Masking = true,
+									CornerRadius = StyledDialog.CornerRadius,
+									Children = new Drawable[]
 									{
-										RelativeSizeAxes = Axes.Both,
-										Colour = new Color4(35, 35, 40, 255)
-									},
-									_offsetTextBox = new BasicTextBox
-									{
-										RelativeSizeAxes = Axes.Both,
-										Text = "0",
-										PlaceholderText = "ms",
-										CommitOnFocusLost = true
+										new Box
+										{
+											RelativeSizeAxes = Axes.Both,
+											Colour = StyledButton.Theme.DialogInsetBg
+										},
+										_offsetTextBox = new BasicTextBox
+										{
+											RelativeSizeAxes = Axes.Both,
+											Text = "0",
+											CommitOnFocusLost = true
+										}
 									}
-								}
-							},
-							new Container
-							{
-								Width = 25,
-								Height = 32,
-								Child = new SpriteText
+								},
+								new SpriteText
 								{
 									Text = "ms",
-									Font = new FontUsage("", 16),
-									Colour = new Color4(100, 100, 100, 255),
+									Font = new FontUsage("", 14),
+									Colour = StyledButton.Theme.MutedLabel,
 									Anchor = Anchor.CentreLeft,
 									Origin = Anchor.CentreLeft
 								}
-							},
-							_plusButton = new FunctionButton("+10")
-							{
-								Width = 45,
-								Height = 32,
-								TooltipText = "Increase offset by 10ms"
-							},
-							_applyButton = new FunctionButton("Apply")
-							{
-								Width = 70,
-								Height = 32,
-								Enabled = false,
-								TooltipText = "Shift all timing points by the specified milliseconds"
 							}
+						},
+						_plusButton = new StyledButton("+10", StyledButtonAppearance.Muted)
+						{
+							Size = new Vector2(_stepButtonWidth, _rowHeight),
+							FontSize = 14,
+							Bold = false,
+							TooltipText = "Increase offset by 10ms"
+						},
+						_applyButton = new StyledButton("Apply")
+						{
+							Size = new Vector2(_applyButtonWidth, _rowHeight),
+							FontSize = 14
 						}
 					}
 				}
 			}
 		};
 
-		// Wire up events - use value change for immediate feedback
-		_offsetTextBox.Current.BindValueChanged(_ => OnTextChanged());
-		_plusButton.Clicked += () => AdjustOffset(10);
+		InternalChild = SettingsLayout.CreateSection("Universal Offset", content);
+
 		_minusButton.Clicked += () => AdjustOffset(-10);
-		_applyButton.Clicked += OnApplyClicked;
+		_plusButton.Clicked += () => AdjustOffset(10);
+		_applyButton.Clicked += () => ApplyOffsetClicked?.Invoke(_currentOffset);
+		_offsetTextBox.OnCommit += OnOffsetCommitted;
 	}
 
-	private void OnTextChanged()
+	private void OnOffsetCommitted(TextBox textBox, bool newValue)
 	{
-		if (double.TryParse(_offsetTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
-			_currentOffset = value;
+		if (double.TryParse(textBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var offset))
+		{
+			_currentOffset = offset;
+			ApplyOffsetClicked?.Invoke(_currentOffset);
+		}
 	}
 
 	private void AdjustOffset(double delta)
 	{
 		_currentOffset += delta;
-		_offsetTextBox.Text = _currentOffset.ToString("0.##", CultureInfo.InvariantCulture);
+		_offsetTextBox.Text = _currentOffset.ToString(CultureInfo.InvariantCulture);
+		ApplyOffsetClicked?.Invoke(_currentOffset);
 	}
 
-	private void OnApplyClicked()
+	public void SetOffset(double offset)
 	{
-		if (double.TryParse(_offsetTextBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var offset))
-			ApplyOffsetClicked?.Invoke(offset);
+		_currentOffset = offset;
+		_offsetTextBox.Text = offset.ToString(CultureInfo.InvariantCulture);
 	}
 
 	public void SetEnabled(bool enabled)
 	{
-		_applyButton.Enabled = enabled;
-		_plusButton.Enabled = enabled;
 		_minusButton.Enabled = enabled;
+		_plusButton.Enabled = enabled;
+		_applyButton.Enabled = enabled;
 	}
 
-	/// <summary>
-	/// Resets the offset input to zero.
-	/// </summary>
 	public void Reset()
 	{
 		_currentOffset = 0;

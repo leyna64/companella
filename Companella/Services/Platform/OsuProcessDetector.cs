@@ -184,17 +184,43 @@ public class OsuProcessDetector : IDisposable
 	}
 
 	/// <summary>
+	/// Checks whether autoplay-related mods are active in the given mod flag set.
+	/// </summary>
+	/// <param name="mods">osu! mod flags.</param>
+	/// <returns>True when Autoplay (AT) or Autopilot (AP) is active.</returns>
+	public static bool HasAutoMod(int mods)
+	{
+		const int MOD_AUTOPLAY = 2048;
+		const int MOD_AUTOPILOT = 8192;
+
+		return (mods & (MOD_AUTOPLAY | MOD_AUTOPILOT)) != 0;
+	}
+
+	/// <summary>
 	/// Checks if AUTO mod is currently active.
 	/// </summary>
 	/// <returns>True if AUTO mod is active, false otherwise.</returns>
 	public bool HasAutoMod()
 	{
-		var mods = GetCurrentMods();
+		return HasAutoMod(GetCurrentMods());
+	}
 
-		// AUTO mod = 16 (bit 4)
-		const int MOD_AUTO = 16;
+	/// <summary>
+	/// Resolves the best available beatmap path using captured, memory, cached, and window-title fallbacks.
+	/// </summary>
+	public string? ResolveBeatmapPath(string? capturedPath = null)
+	{
+		if (!string.IsNullOrEmpty(capturedPath) && File.Exists(capturedPath))
+			return capturedPath;
 
-		return (mods & MOD_AUTO) != 0;
+		var fromMemory = GetBeatmapFromMemory();
+		if (!string.IsNullOrEmpty(fromMemory))
+			return fromMemory;
+
+		if (!string.IsNullOrEmpty(CurrentBeatmapPath) && File.Exists(CurrentBeatmapPath))
+			return CurrentBeatmapPath;
+
+		return GetBeatmapFromWindowTitle();
 	}
 
 	/// <summary>

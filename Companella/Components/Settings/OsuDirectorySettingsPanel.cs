@@ -28,9 +28,9 @@ public partial class OsuDirectorySettingsPanel : CompositeDrawable
 	[Resolved] private OsuProcessDetector ProcessDetector { get; set; } = null!;
 
 	private SettingsCheckbox _autoDetectCheckbox = null!;
-	private SpriteText _readOnlyPathText = null!;
+	private TextFlowContainer _readOnlyPathText = null!;
 	private BasicTextBox _manualPathTextBox = null!;
-	private FunctionButton _browseButton = null!;
+	private StyledButton _browseButton = null!;
 	private FillFlowContainer _autoPathRow = null!;
 	private FillFlowContainer _manualPathRow = null!;
 
@@ -44,100 +44,81 @@ public partial class OsuDirectorySettingsPanel : CompositeDrawable
 
 		var settings = SettingsService.Settings;
 
-		InternalChildren = new Drawable[]
+		var content = new FillFlowContainer
 		{
-			new FillFlowContainer
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 10),
+			Children = new Drawable[]
 			{
-				RelativeSizeAxes = Axes.X,
-				AutoSizeAxes = Axes.Y,
-				Direction = FillDirection.Vertical,
-				Spacing = new Vector2(0, 8),
-				Children = new Drawable[]
+				_autoDetectCheckbox = new SettingsCheckbox
 				{
-					new SpriteText
+					LabelText = "Automatically detect osu! songs directory",
+					IsChecked = settings.AutoDetectOsuDirectory,
+					TooltipText = "Find the osu! folder from the running game, cache, or default install location"
+				},
+				SettingsLayout.CreateHint("osu! directory (contains Songs folder):"),
+				_autoPathRow = new FillFlowContainer
+				{
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Direction = FillDirection.Vertical,
+					Spacing = new Vector2(0, 4),
+					Children = new Drawable[]
 					{
-						Text = "osu! Songs Directory:",
-						Font = new FontUsage("", 16),
-						Colour = new Color4(200, 200, 200, 255)
-					},
-					_autoDetectCheckbox = new SettingsCheckbox
+						_readOnlyPathText = SettingsLayout.CreateWrappingText(
+							GetAutoPathDisplayText(),
+							14,
+							StyledButton.Theme.MutedLabel)
+					}
+				},
+				_manualPathRow = new FillFlowContainer
+				{
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Direction = FillDirection.Vertical,
+					Spacing = new Vector2(0, 8),
+					Children = new Drawable[]
 					{
-						LabelText = "Automatically Detect osu! Songs Directory",
-						IsChecked = settings.AutoDetectOsuDirectory,
-						TooltipText =
-							"When enabled, the osu! folder is found from the running game, cache, or default install location"
-					},
-					new SpriteText
-					{
-						Text = "osu! directory (contains Songs folder):",
-						Font = new FontUsage("", 13),
-						Colour = new Color4(160, 160, 160, 255)
-					},
-					_autoPathRow = new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Vertical,
-						Spacing = new Vector2(0, 4),
-						Children = new Drawable[]
+						new Container
 						{
-							_readOnlyPathText = new SpriteText
+							Height = 32,
+							RelativeSizeAxes = Axes.X,
+							Masking = true,
+							CornerRadius = StyledDialog.CornerRadius,
+							Children = new Drawable[]
 							{
-								RelativeSizeAxes = Axes.X,
-								Text = GetAutoPathDisplayText(),
-								Font = new FontUsage("", 14),
-								Colour = new Color4(160, 160, 160, 255),
-								Alpha = 0.7f,
-								Truncate = true
-							}
-						}
-					},
-					_manualPathRow = new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Horizontal,
-						Spacing = new Vector2(8, 0),
-						Children = new Drawable[]
-						{
-							new Container
-							{
-								Height = 32,
-								Width = 420,
-								Masking = true,
-								CornerRadius = 4,
-								Children = new Drawable[]
+								new Box
 								{
-									new Box
-									{
-										RelativeSizeAxes = Axes.Both,
-										Colour = new Color4(35, 35, 40, 255)
-									},
-									_manualPathTextBox = new BasicTextBox
-									{
-										RelativeSizeAxes = Axes.Both,
-										Text = settings.CachedOsuDirectory ?? "",
-										PlaceholderText = "Path to osu! installation folder",
-										CommitOnFocusLost = true
-									}
+									RelativeSizeAxes = Axes.Both,
+									Colour = StyledButton.Theme.DialogInsetBg
+								},
+								_manualPathTextBox = new BasicTextBox
+								{
+									RelativeSizeAxes = Axes.Both,
+									Text = settings.CachedOsuDirectory ?? string.Empty,
+									PlaceholderText = "Path to osu! installation folder",
+									CommitOnFocusLost = true
 								}
-							},
-							_browseButton = new FunctionButton("Browse")
-							{
-								Width = 90,
-								Height = 32,
-								TooltipText = "Choose the folder that contains the Songs subfolder"
 							}
+						},
+						_browseButton = new StyledButton("Browse")
+						{
+							Width = 90,
+							Height = 32,
+							TooltipText = "Choose the folder that contains the Songs subfolder"
 						}
 					}
 				}
 			}
 		};
 
+		InternalChild = new SettingsSection("osu! Directory", "Where Companella looks for your beatmaps and replays", content);
+
 		_autoDetectCheckbox.CheckedChanged += OnAutoDetectChanged;
 		_manualPathTextBox.OnCommit += OnManualPathCommit;
 		_browseButton.Clicked += OnBrowseClicked;
-
 		UpdatePathRowVisibility();
 	}
 
@@ -160,7 +141,7 @@ public partial class OsuDirectorySettingsPanel : CompositeDrawable
 		SaveSettings();
 
 		if (!isChecked)
-			_manualPathTextBox.Text = SettingsService.Settings.CachedOsuDirectory ?? "";
+			_manualPathTextBox.Text = SettingsService.Settings.CachedOsuDirectory ?? string.Empty;
 
 		UpdatePathRowVisibility();
 		if (isChecked)
@@ -172,7 +153,7 @@ public partial class OsuDirectorySettingsPanel : CompositeDrawable
 		if (SettingsService.Settings.AutoDetectOsuDirectory)
 			return;
 
-		var trimmed = (_manualPathTextBox.Text ?? "").Trim();
+		var trimmed = (_manualPathTextBox.Text ?? string.Empty).Trim();
 		SettingsService.Settings.CachedOsuDirectory = string.IsNullOrEmpty(trimmed) ? null : trimmed;
 		SaveSettings();
 	}
@@ -182,8 +163,6 @@ public partial class OsuDirectorySettingsPanel : CompositeDrawable
 		if (SettingsService.Settings.AutoDetectOsuDirectory)
 			return;
 
-		// WinForms folder dialogs must run on an STA thread. The osu!framework game thread is not suitable
-		// for ShowDialog() (freeze/deadlock). Run the dialog on a dedicated STA thread and marshal back.
 		var initialDir = SettingsService.Settings.CachedOsuDirectory;
 		if (string.IsNullOrEmpty(initialDir) || !Directory.Exists(initialDir))
 			initialDir = null;
@@ -222,16 +201,12 @@ public partial class OsuDirectorySettingsPanel : CompositeDrawable
 
 	private void ApplyBrowseSelection(string? selected)
 	{
-		if (SettingsService.Settings.AutoDetectOsuDirectory)
-			return;
-
-		if (string.IsNullOrEmpty(selected))
+		if (SettingsService.Settings.AutoDetectOsuDirectory || string.IsNullOrEmpty(selected))
 			return;
 
 		var songsPath = Path.Combine(selected, "Songs");
 		if (!Directory.Exists(songsPath))
-			Logger.Info(
-				"[Settings] Selected osu! folder has no Songs subfolder; path saved anyway. User may need to fix the path.");
+			Logger.Info("[Settings] Selected osu! folder has no Songs subfolder; path saved anyway.");
 
 		SettingsService.Settings.CachedOsuDirectory = selected;
 		_manualPathTextBox.Text = selected;
@@ -247,7 +222,7 @@ public partial class OsuDirectorySettingsPanel : CompositeDrawable
 		if (auto)
 			_readOnlyPathText.Text = GetAutoPathDisplayText();
 		else
-			_manualPathTextBox.Text = SettingsService.Settings.CachedOsuDirectory ?? "";
+			_manualPathTextBox.Text = SettingsService.Settings.CachedOsuDirectory ?? string.Empty;
 	}
 
 	protected override void Update()
@@ -265,8 +240,5 @@ public partial class OsuDirectorySettingsPanel : CompositeDrawable
 		_readOnlyPathText.Text = GetAutoPathDisplayText();
 	}
 
-	private void SaveSettings()
-	{
-		Task.Run(async () => await SettingsService.SaveAsync());
-	}
+	private void SaveSettings() => Task.Run(async () => await SettingsService.SaveAsync());
 }

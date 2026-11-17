@@ -205,13 +205,22 @@ public partial class MapInfoDisplay : CompositeDrawable
 													Spacing = new Vector2(8, 0),
 													Children = []
 												},
-												// Sunny difficulty
+												new FillFlowContainer
+												{
+													AutoSizeAxes = Axes.Both,
+													Direction = FillDirection.Horizontal,
+													Children = new Drawable[]
+													{
+														// Sunny difficulty
 												_sunnyDifficultyText = new SpriteText
 												{
 													Text = "",
 													Font = new FontUsage("", 23),
 													Colour = _valueColor
 												}
+													}
+												}
+												
 											}
 										}
 									}
@@ -424,6 +433,7 @@ public partial class MapInfoDisplay : CompositeDrawable
 		var rate = ProcessDetector.GetCurrentRateFromMods();
 		LoadYavsrgDifficulty(osuFile, rate);
 		LoadSunnyDifficulty(osuFile, rate);
+		_patternDisplay.RefreshLnDan(osuFile, rate);
 	}
 
 	private void UpdateDifficultyStats(OsuFile osuFile)
@@ -438,7 +448,10 @@ public partial class MapInfoDisplay : CompositeDrawable
 		if (_yavsrgDifficulty.HasValue) statsParts.Add($"{_yavsrgDifficulty.Value:F2} Interlude");
 
 		// Add Sunny difficulty if available
-		if (_sunnyDifficulty.HasValue) _sunnyDifficultyText.Text = $"{_sunnyDifficulty.Value:F2} Sunny";
+		if (_sunnyDifficulty.HasValue)
+			_sunnyDifficultyText.Text = $"{_sunnyDifficulty.Value:F2} Sunny";
+		else
+			_sunnyDifficultyText.Text = "";
 
 		_difficultyStatsText.Text = string.Join("  |  ", statsParts);
 	}
@@ -669,6 +682,7 @@ public partial class MapInfoDisplay : CompositeDrawable
 			// Also refresh Interlude and Sunny with new rate
 			LoadYavsrgDifficulty(_currentOsuFile, rate);
 			LoadSunnyDifficulty(_currentOsuFile, rate);
+			_patternDisplay.RefreshLnDan(_currentOsuFile, rate);
 		}
 	}
 

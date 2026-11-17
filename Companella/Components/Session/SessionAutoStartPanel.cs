@@ -1,3 +1,5 @@
+using Companella.Components.Misc;
+using Companella.Components.Settings;
 using Companella.Services.Common;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
@@ -28,37 +30,30 @@ public partial class SessionAutoStartPanel : CompositeDrawable
 		RelativeSizeAxes = Axes.X;
 		AutoSizeAxes = Axes.Y;
 
-		InternalChildren = new Drawable[]
+		var content = new FillFlowContainer
 		{
-			new FillFlowContainer
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 10),
+			Children = new Drawable[]
 			{
-				RelativeSizeAxes = Axes.X,
-				AutoSizeAxes = Axes.Y,
-				Direction = FillDirection.Vertical,
-				Spacing = new Vector2(0, 8),
-				Children = new Drawable[]
+				_autoStartCheckbox = new SettingsCheckbox
 				{
-					new SpriteText
-					{
-						Text = "Session Tracking:",
-						Font = new FontUsage("", 16),
-						Colour = new Color4(200, 200, 200, 255)
-					},
-					_autoStartCheckbox = new SettingsCheckbox
-					{
-						LabelText = "Auto-start session on startup",
-						IsChecked = SettingsService.Settings.AutoStartSession,
-						TooltipText = "Automatically start tracking when the app launches"
-					},
-					_autoEndCheckbox = new SettingsCheckbox
-					{
-						LabelText = "Auto-end session on exit",
-						IsChecked = SettingsService.Settings.AutoEndSession,
-						TooltipText = "Automatically end and save the session when closing the app"
-					}
+					LabelText = "Auto-start session on startup",
+					IsChecked = SettingsService.Settings.AutoStartSession,
+					TooltipText = "Automatically start tracking when the app launches"
+				},
+				_autoEndCheckbox = new SettingsCheckbox
+				{
+					LabelText = "Auto-end session on exit",
+					IsChecked = SettingsService.Settings.AutoEndSession,
+					TooltipText = "Automatically end and save the session when closing the app"
 				}
 			}
 		};
+
+		InternalChild = new SettingsSection("Session Tracking", "Automatic session lifecycle behavior", content);
 
 		_autoStartCheckbox.CheckedChanged += OnAutoStartChanged;
 		_autoEndCheckbox.CheckedChanged += OnAutoEndChanged;
@@ -89,7 +84,7 @@ public partial class SettingsCheckbox : CompositeDrawable, IHasTooltip
 {
 	private Box _checkboxBackground = null!;
 	private Box _checkmark = null!;
-	private SpriteText _label = null!;
+	private TextFlowContainer _label = null!;
 	private bool _isChecked;
 
 	public string LabelText { get; set; } = "Option";
@@ -123,56 +118,57 @@ public partial class SettingsCheckbox : CompositeDrawable, IHasTooltip
 
 	public event Action<bool>? CheckedChanged;
 
-	private readonly Color4 _uncheckedColor = new(60, 60, 70, 255);
-	private readonly Color4 _checkedColor = new(255, 102, 170, 255);
-	private readonly Color4 _hoverColor = new(80, 80, 90, 255);
+	private readonly Color4 _uncheckedColor = StyledButton.Theme.DialogInsetBg;
+	private readonly Color4 _checkedColor = StyledButton.Theme.Accent;
+	private readonly Color4 _hoverColor = StyledButton.Theme.HoverBg;
 
 	[BackgroundDependencyLoader]
 	private void load()
 	{
-		AutoSizeAxes = Axes.Both;
+		RelativeSizeAxes = Axes.X;
+		AutoSizeAxes = Axes.Y;
 
-		InternalChildren = new Drawable[]
+		InternalChild = new FillFlowContainer
 		{
-			new FillFlowContainer
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Horizontal,
+			Spacing = new Vector2(8, 0),
+			Children = new Drawable[]
 			{
-				AutoSizeAxes = Axes.Both,
-				Direction = FillDirection.Horizontal,
-				Spacing = new Vector2(8, 0),
-				Children = new Drawable[]
+				new Container
 				{
-					new Container
+					Size = new Vector2(18),
+					Masking = true,
+					CornerRadius = 2,
+					Anchor = Anchor.TopLeft,
+					Origin = Anchor.TopLeft,
+					Children = new Drawable[]
 					{
-						Size = new Vector2(18),
-						Masking = true,
-						CornerRadius = 3,
-						Anchor = Anchor.CentreLeft,
-						Origin = Anchor.CentreLeft,
-						Children = new Drawable[]
+						_checkboxBackground = new Box
 						{
-							_checkboxBackground = new Box
-							{
-								RelativeSizeAxes = Axes.Both,
-								Colour = _uncheckedColor
-							},
-							_checkmark = new Box
-							{
-								Size = new Vector2(10),
-								Anchor = Anchor.Centre,
-								Origin = Anchor.Centre,
-								Colour = Color4.White,
-								Alpha = 0
-							}
+							RelativeSizeAxes = Axes.Both,
+							Colour = _uncheckedColor
+						},
+						_checkmark = new Box
+						{
+							Size = new Vector2(10),
+							Anchor = Anchor.Centre,
+							Origin = Anchor.Centre,
+							Colour = Color4.White,
+							Alpha = 0
 						}
-					},
-					_label = new SpriteText
-					{
-						Text = LabelText,
-						Font = new FontUsage("", LabelFontSize),
-						Colour = LabelColour,
-						Anchor = Anchor.CentreLeft,
-						Origin = Anchor.CentreLeft
 					}
+				},
+				_label = new TextFlowContainer(s =>
+				{
+					s.Font = new FontUsage("", LabelFontSize);
+					s.Colour = LabelColour;
+				})
+				{
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Text = LabelText
 				}
 			}
 		};

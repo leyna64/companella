@@ -1,6 +1,8 @@
 using System.Globalization;
+using Companella.Components.Layout;
 using Companella.Components.Misc;
 using Companella.Components.Session;
+using Companella.Components.Settings;
 using Companella.Models.Application;
 using Companella.Models.Beatmap;
 using Companella.Services.Tools;
@@ -27,12 +29,12 @@ namespace Companella.Components.Tools;
 public partial class MarathonCreatorPanel : CompositeDrawable
 {
 	private FillFlowContainer _listContainer = null!;
-	private ModernButton _addButton = null!;
-	private ModernButton _addPauseButton = null!;
+	private StyledButton _addButton = null!;
+	private StyledButton _addPauseButton = null!;
 	private StyledTextBox _pauseDurationTextBox = null!;
-	private ModernButton _createButton = null!;
-	private ModernButton _clearButton = null!;
-	private ModernButton _msdButton = null!;
+	private StyledButton _createButton = null!;
+	private StyledButton _clearButton = null!;
+	private StyledButton _msdButton = null!;
 	private StyledTextBox _titleTextBox = null!;
 	private StyledTextBox _artistTextBox = null!;
 	private StyledTextBox _creatorTextBox = null!;
@@ -51,7 +53,7 @@ public partial class MarathonCreatorPanel : CompositeDrawable
 	private SpriteText _previewStatusText = null!;
 	private MarathonPreviewOverlay _previewOverlay = null!;
 	private SpriteText _previewShardInfoText = null!;
-	private ModernButton _resetBgPanZoomButton = null!;
+	private StyledButton _resetBgPanZoomButton = null!;
 	private CancellationTokenSource? _previewCancellation;
 
 	// Preview throttling (1/30th second = ~33ms)
@@ -126,16 +128,16 @@ public partial class MarathonCreatorPanel : CompositeDrawable
 									Spacing = new Vector2(8, 0),
 									Children = new Drawable[]
 									{
-										_addButton = new ModernButton("Add Current Map")
+										_addButton = new StyledButton("Add Current Map")
 										{
 											Size = new Vector2(140, 32),
 											Enabled = false,
 											TooltipText = "Add the currently selected beatmap to the marathon"
 										},
-										_addPauseButton = new ModernButton("Pause",
-											new Color4(60, 180, 60, 255))
+										_addPauseButton = new StyledButton("Pause")
 										{
 											Size = new Vector2(70, 32),
+											AccentColor = new Color4(60, 180, 60, 255),
 											TooltipText =
 												"Add a pause break between maps. Ctrl+click: insert/replace pauses between every map."
 										},
@@ -145,14 +147,14 @@ public partial class MarathonCreatorPanel : CompositeDrawable
 											Text = "5",
 											PlaceholderText = "sec"
 										},
-										_clearButton = new ModernButton("Clear All",
-											new Color4(180, 60, 60, 255))
+										_clearButton = new StyledButton("Clear All")
 										{
 											Size = new Vector2(90, 32),
 											Enabled = false,
+											AccentColor = StyledButton.Theme.DestructiveAccent,
 											TooltipText = "Remove all entries from the marathon"
 										},
-										_msdButton = new ModernButton("MSD")
+										_msdButton = new StyledButton("MSD")
 										{
 											Size = new Vector2(50, 32),
 											Enabled = false,
@@ -177,7 +179,7 @@ public partial class MarathonCreatorPanel : CompositeDrawable
 									RelativeSizeAxes = Axes.Both,
 									Colour = new Color4(30, 30, 35, 255)
 								},
-								new BasicScrollContainer
+								new ChainedScrollContainer
 								{
 									RelativeSizeAxes = Axes.Both,
 									ClampExtension = 10,
@@ -333,11 +335,11 @@ public partial class MarathonCreatorPanel : CompositeDrawable
 												Alpha = 0
 											}
 										},
-										_resetBgPanZoomButton = new ModernButton("Reset pan & zoom",
-											new Color4(70, 120, 160, 255))
+										_resetBgPanZoomButton = new StyledButton("Reset pan & zoom")
 										{
 											Size = new Vector2(140, 28),
 											Enabled = false,
+											AccentColor = new Color4(70, 120, 160, 255),
 											TooltipText =
 												"Reset pan (center) and zoom (1.0) for the selected background shard"
 										}
@@ -347,7 +349,7 @@ public partial class MarathonCreatorPanel : CompositeDrawable
 						}
 					}),
 					// Create Button
-					_createButton = new ModernButton("Create Marathon")
+					_createButton = new StyledButton("Create Marathon")
 					{
 						RelativeSizeAxes = Axes.X,
 						Height = 40,
@@ -384,40 +386,8 @@ public partial class MarathonCreatorPanel : CompositeDrawable
 		RefreshList();
 	}
 
-	private static Container CreateSection(string title, Drawable[] content)
-	{
-		return new Container
-		{
-			RelativeSizeAxes = Axes.X,
-			AutoSizeAxes = Axes.Y,
-			Children = new Drawable[]
-			{
-				new FillFlowContainer
-				{
-					RelativeSizeAxes = Axes.X,
-					AutoSizeAxes = Axes.Y,
-					Direction = FillDirection.Vertical,
-					Spacing = new Vector2(0, 6),
-					Children = new Drawable[]
-					{
-						new SpriteText
-						{
-							Text = title,
-							Font = new FontUsage("", 15, "Bold"),
-							Colour = new Color4(180, 180, 180, 255)
-						},
-						new FillFlowContainer
-						{
-							RelativeSizeAxes = Axes.X,
-							AutoSizeAxes = Axes.Y,
-							Direction = FillDirection.Vertical,
-							Children = content
-						}
-					}
-				}
-			}
-		};
-	}
+	private static SettingsSection CreateSection(string title, Drawable[] content) =>
+		SettingsLayout.CreateSection(title, content);
 
 	private static Container CreateLabeledInput(string label, out StyledTextBox textBox, string defaultValue)
 	{
@@ -547,11 +517,16 @@ public partial class MarathonCreatorPanel : CompositeDrawable
 		};
 	}
 
-	private SymbolButton CreateSymbolButton(string symbol)
+	private StyledButton CreateSymbolButton(string symbol)
 	{
-		var btn = new SymbolButton(symbol)
+		var btn = new StyledButton(symbol, StyledButtonAppearance.Custom)
 		{
-			Size = new Vector2(24, 24)
+			Size = new Vector2(24, 24),
+			UseUnicodeFont = true,
+			FontSize = 14,
+			ShowAccentBar = false,
+			CustomNormalBg = new Color4(50, 50, 55, 255),
+			CustomHoverBg = new Color4(70, 70, 80, 255)
 		};
 		btn.Clicked += () => InsertSymbol(symbol);
 		return btn;
@@ -798,68 +773,6 @@ public partial class MarathonCreatorPanel : CompositeDrawable
 		{
 			BackgroundColour = Color4.Transparent;
 			SelectionColour = _accentColor;
-		}
-	}
-
-	private partial class SymbolButton : CompositeDrawable
-	{
-		private readonly string _symbol;
-		private Box _background = null!;
-		public event Action? Clicked;
-
-		private readonly Color4 _normalBg = new(50, 50, 55, 255);
-		private readonly Color4 _hoverBg = new(70, 70, 80, 255);
-		private readonly Color4 _clickBg = new(90, 90, 100, 255);
-
-		// Use test font for Unicode character support (Greek letters, symbols)
-		private static readonly FontUsage _unicodeFont = new("Noto-Basic", 17);
-
-		public SymbolButton(string symbol)
-		{
-			_symbol = symbol;
-		}
-
-		[BackgroundDependencyLoader]
-		private void load()
-		{
-			Masking = true;
-			CornerRadius = 4;
-
-			InternalChildren = new Drawable[]
-			{
-				_background = new Box
-				{
-					RelativeSizeAxes = Axes.Both,
-					Colour = _normalBg
-				},
-				new SpriteText
-				{
-					Text = _symbol,
-					Font = _unicodeFont,
-					Colour = Color4.White,
-					Anchor = Anchor.Centre,
-					Origin = Anchor.Centre
-				}
-			};
-		}
-
-		protected override bool OnHover(HoverEvent e)
-		{
-			_background.FadeColour(_hoverBg, 100);
-			return base.OnHover(e);
-		}
-
-		protected override void OnHoverLost(HoverLostEvent e)
-		{
-			_background.FadeColour(_normalBg, 100);
-			base.OnHoverLost(e);
-		}
-
-		protected override bool OnClick(ClickEvent e)
-		{
-			_background.FadeColour(_clickBg, 50).Then().FadeColour(_hoverBg, 100);
-			Clicked?.Invoke();
-			return true;
 		}
 	}
 
@@ -1443,6 +1356,22 @@ public partial class MarathonEntryRow : CompositeDrawable
 		};
 	}
 
+	private static StyledButton CreateRowActionButton(string text, Action action, Color4 normalBg, Color4 hoverBg,
+		float width)
+	{
+		var button = new StyledButton(text, StyledButtonAppearance.Custom)
+		{
+			Size = new Vector2(width, 28),
+			UseUnicodeFont = true,
+			FontSize = 14,
+			ShowAccentBar = false,
+			CustomNormalBg = normalBg,
+			CustomHoverBg = hoverBg
+		};
+		button.Clicked += action;
+		return button;
+	}
+
 	private FillFlowContainer CreateActionButtonsSection()
 	{
 		var children = new List<Drawable>();
@@ -1500,18 +1429,9 @@ public partial class MarathonEntryRow : CompositeDrawable
 			_pitchCheckbox = null;
 		}
 
-		children.Add(new ActionButton("\u2191", OnMoveUp, new Color4(70, 70, 75, 255), new Color4(90, 90, 95, 255))
-		{
-			Size = new Vector2(28, 28)
-		});
-		children.Add(new ActionButton("\u2193", OnMoveDown, new Color4(70, 70, 75, 255), new Color4(90, 90, 95, 255))
-		{
-			Size = new Vector2(28, 28)
-		});
-		children.Add(new ActionButton("\u2190", OnDelete, _deleteBg, _deleteHoverBg)
-		{
-			Size = new Vector2(32, 28)
-		});
+		children.Add(CreateRowActionButton("\u2191", OnMoveUp, new Color4(70, 70, 75, 255), new Color4(90, 90, 95, 255), 28));
+		children.Add(CreateRowActionButton("\u2193", OnMoveDown, new Color4(70, 70, 75, 255), new Color4(90, 90, 95, 255), 28));
+		children.Add(CreateRowActionButton("\u2190", OnDelete, _deleteBg, _deleteHoverBg, 32));
 
 		return new FillFlowContainer
 		{
@@ -1573,69 +1493,5 @@ public partial class MarathonEntryRow : CompositeDrawable
 
 		_background.FadeColour(_entry.IsPause ? _pauseBg : _normalBg, 100);
 		base.OnHoverLost(e);
-	}
-}
-
-/// <summary>
-/// Action button with customizable colors for list item actions.
-/// </summary>
-public partial class ActionButton : CompositeDrawable
-{
-	private readonly string _text;
-	private readonly Action _action;
-	private readonly Color4 _normalBg;
-	private readonly Color4 _hoverBg;
-
-	private Box _background = null!;
-
-	public ActionButton(string text, Action action, Color4 normalBg, Color4 hoverBg)
-	{
-		_text = text;
-		_action = action;
-		_normalBg = normalBg;
-		_hoverBg = hoverBg;
-	}
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 4;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _normalBg
-			},
-			new SpriteText
-			{
-				Text = _text,
-				Font = new FontUsage("", 14, "Bold"),
-				Colour = Color4.White,
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre
-			}
-		};
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		_background.FadeColour(_hoverBg, 100);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_background.FadeColour(_normalBg, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		_action?.Invoke();
-		_background.FlashColour(Color4.White, 100);
-		return true;
 	}
 }

@@ -1,4 +1,5 @@
 using Companella.Components.Misc;
+using Companella.Components.Settings;
 using Companella.Services.Beatmap;
 using Companella.Services.Platform;
 using Companella.Services.Tools;
@@ -27,14 +28,11 @@ public partial class ScoreMigrationPanel : CompositeDrawable
 
 	private ConfirmationDialog? _confirmationDialog;
 
-	private MigrationButton _migrateButton = null!;
-	private MigrationButton _cleanupButton = null!;
-	private SpriteText _statusText = null!;
-	private SpriteText _resultText = null!;
+	private StyledButton _migrateButton = null!;
+	private StyledButton _cleanupButton = null!;
+	private TextFlowContainer _statusText = null!;
+	private TextFlowContainer _resultText = null!;
 	private bool _isWorking;
-
-	private readonly Color4 _accentColor = new(255, 102, 170, 255);
-	private readonly Color4 _dangerColor = new(255, 80, 80, 255);
 
 	[BackgroundDependencyLoader]
 	private void load()
@@ -42,107 +40,53 @@ public partial class ScoreMigrationPanel : CompositeDrawable
 		RelativeSizeAxes = Axes.X;
 		AutoSizeAxes = Axes.Y;
 
-		InternalChildren = new Drawable[]
+		var content = new FillFlowContainer
 		{
-			new FillFlowContainer
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 10),
+			Children = new Drawable[]
 			{
-				RelativeSizeAxes = Axes.X,
-				AutoSizeAxes = Axes.Y,
-				Direction = FillDirection.Vertical,
-				Spacing = new Vector2(0, 8),
-				Children = new Drawable[]
+				SettingsLayout.CreateWrappingText(
+					"Move scores from session practice copies back to their original beatmaps so your real maps keep the plays.",
+					14,
+					StyledButton.Theme.MutedLabel),
+				SettingsLayout.CreateHint("osu! will restart to save scores, close for migration, then reopen. A backup is created."),
+				new FillFlowContainer
 				{
-					// Header
-					new SpriteText
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Direction = FillDirection.Vertical,
+					Spacing = new Vector2(0, 6),
+					Children = new Drawable[]
 					{
-						Text = "Score Migration",
-						Font = new FontUsage("", 17, "Bold"),
-						Colour = new Color4(180, 180, 180, 255)
-					},
-					// Description
-					new TextFlowContainer(s =>
-					{
-						s.Font = new FontUsage("", 14);
-						s.Colour = new Color4(140, 140, 140, 255);
-					})
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Text = "Move scores from session practice copies to their original beatmaps. " +
-							   "This lets you keep your practice scores on the real maps."
-					},
-					// Info
-					new TextFlowContainer(s =>
-					{
-						s.Font = new FontUsage("", 13);
-						s.Colour = new Color4(255, 180, 100, 255);
-					})
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Text =
-							"osu! will restart to save scores, close for migration, then reopen. A backup is created."
-					},
-					// Buttons and status
-					new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Vertical,
-						Spacing = new Vector2(0, 6),
-						Margin = new MarginPadding { Top = 4 },
-						Children = new Drawable[]
+						new FillFlowContainer
 						{
-							// Button row
-							new FillFlowContainer
+							RelativeSizeAxes = Axes.X,
+							AutoSizeAxes = Axes.Y,
+							Direction = FillDirection.Vertical,
+							Spacing = new Vector2(0, 8),
+							Children = new Drawable[]
 							{
-								AutoSizeAxes = Axes.Both,
-								Direction = FillDirection.Horizontal,
-								Spacing = new Vector2(8, 0),
-								Children = new Drawable[]
-								{
-									_migrateButton = new MigrationButton
-									{
-										Text = "Migrate Scores",
-										Width = 140,
-										Height = 32,
-										Action = OnMigrateClicked
-									},
-									_cleanupButton = new MigrationButton
-									{
-										Text = "Delete Session Maps",
-										Width = 160,
-										Height = 32,
-										Action = OnCleanupClicked,
-										IsDanger = true
-									}
-								}
-							},
-							_statusText = new SpriteText
-							{
-								Text = "",
-								Font = new FontUsage("", 14),
-								Colour = new Color4(160, 160, 160, 255),
-								Alpha = 0
-							},
-							_resultText = new SpriteText
-							{
-								Text = "",
-								Font = new FontUsage("", 15),
-								Colour = _accentColor,
-								Alpha = 0
+								_migrateButton = new StyledButton("Migrate Scores") { RelativeSizeAxes = Axes.X, Height = 32, Action = OnMigrateClicked },
+								_cleanupButton = new StyledButton("Delete Session Maps") { AccentColor = StyledButton.Theme.DestructiveAccent, RelativeSizeAxes = Axes.X, Height = 32, Action = OnCleanupClicked }
 							}
-						}
+						},
+						_statusText = SettingsLayout.CreateStatusText(14, StyledButton.Theme.MutedLabel, 0),
+						_resultText = SettingsLayout.CreateStatusText(15, StyledButton.Theme.Accent, 0)
 					}
 				}
 			}
 		};
+
+		InternalChild = new SettingsSection("Score Migration", "Move practice scores to original beatmaps", content);
 	}
 
 	private void SetButtonsEnabled(bool enabled)
 	{
-		_migrateButton.Enabled.Value = enabled;
-		_cleanupButton.Enabled.Value = enabled;
+		_migrateButton.SetEnabled(enabled);
+		_cleanupButton.SetEnabled(enabled);
 	}
 
 	private void OnMigrateClicked()
@@ -252,12 +196,13 @@ public partial class ScoreMigrationPanel : CompositeDrawable
 						var migrationInfo = result.MigrationResult?.ScoresMigrated > 0
 							? $" ({result.MigrationResult.ScoresMigrated} scores migrated)"
 							: "";
-						_resultText.Text =
-							$"Deleted {result.FilesDeleted} session maps{migrationInfo} - osu! restarted";
+						var message = $"Deleted {result.FilesDeleted} session maps{migrationInfo} - osu! restarted";
+						if (result.FilesFailed > 0)
+							message += $" ({result.FilesFailed} failed)";
+
+						_resultText.Text = message;
 						_resultText.Colour = new Color4(100, 200, 100, 255);
 						_resultText.Alpha = 1;
-
-						if (result.FilesFailed > 0) _resultText.Text += $" ({result.FilesFailed} failed)";
 					}
 					else
 					{
@@ -287,89 +232,5 @@ public partial class ScoreMigrationPanel : CompositeDrawable
 		_confirmationDialog.Confirmed -= onConfirm;
 		_confirmationDialog.Confirmed += onConfirm;
 		_confirmationDialog.Show(title, message, true);
-	}
-}
-
-/// <summary>
-/// Styled button for migration action.
-/// </summary>
-public partial class MigrationButton : CompositeDrawable
-{
-	private Box _background = null!;
-	private Box _hoverOverlay = null!;
-	private SpriteText _text = null!;
-
-	public string Text { get; set; } = "Button";
-	public Action? Action { get; set; }
-	public bool IsDanger { get; set; }
-
-	public readonly Bindable<bool> Enabled = new(true);
-
-	private readonly Color4 _normalColor = new(60, 60, 70, 255);
-	private readonly Color4 _dangerColor = new(100, 50, 50, 255);
-	private readonly Color4 _accentColor = new(255, 102, 170, 255);
-	private readonly Color4 _dangerAccentColor = new(255, 80, 80, 255);
-	private readonly Color4 _disabledColor = new(45, 45, 55, 255);
-
-	private Color4 BaseColor => IsDanger ? _dangerColor : _normalColor;
-	private Color4 AccentColor => IsDanger ? _dangerAccentColor : _accentColor;
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 4;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = BaseColor
-			},
-			_hoverOverlay = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = AccentColor,
-				Alpha = 0
-			},
-			_text = new SpriteText
-			{
-				Text = Text,
-				Font = new FontUsage("", 15, "Bold"),
-				Colour = Color4.White,
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre
-			}
-		};
-
-		Enabled.BindValueChanged(e =>
-		{
-			_background.FadeColour(e.NewValue ? BaseColor : _disabledColor, 100);
-			_text.FadeTo(e.NewValue ? 1 : 0.5f, 100);
-		}, true);
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		if (Enabled.Value)
-			_hoverOverlay.FadeTo(0.2f, 100);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_hoverOverlay.FadeTo(0, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		if (!Enabled.Value)
-			return false;
-
-		_hoverOverlay.FadeTo(0.4f).Then().FadeTo(0.2f, 100);
-		Action?.Invoke();
-		return true;
 	}
 }

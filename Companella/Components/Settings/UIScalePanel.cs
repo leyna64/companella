@@ -1,15 +1,12 @@
 using Companella.Components.Layout;
+using Companella.Components.Misc;
 using Companella.Services.Common;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
-using osu.Framework.Graphics.Cursor;
-using osu.Framework.Graphics.Shapes;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.UserInterface;
-using osu.Framework.Input.Events;
-using osu.Framework.Localisation;
 using osuTK;
 using osuTK.Graphics;
 
@@ -27,10 +24,6 @@ public partial class UIScalePanel : CompositeDrawable
 	private StyledSliderBar _scaleSlider = null!;
 	private SpriteText _scaleValue = null!;
 
-	private readonly Color4 _accentColor = new(255, 102, 170, 255);
-	private readonly Color4 _backgroundColor = new(40, 40, 45, 255);
-
-	// Bindable for the slider
 	private readonly BindableNumber<float> _scaleBindable = new BindableFloat(1.0f)
 	{
 		MinValue = 0.5f,
@@ -41,153 +34,77 @@ public partial class UIScalePanel : CompositeDrawable
 	[BackgroundDependencyLoader]
 	private void load()
 	{
+		RelativeSizeAxes = Axes.X;
 		AutoSizeAxes = Axes.Y;
-		Masking = true;
-		CornerRadius = 8;
 
-		InternalChildren = new Drawable[]
+		var content = new FillFlowContainer
 		{
-			new Box
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 12),
+			Children = new Drawable[]
 			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _backgroundColor
-			},
-			new FillFlowContainer
-			{
-				RelativeSizeAxes = Axes.X,
-				AutoSizeAxes = Axes.Y,
-				Direction = FillDirection.Vertical,
-				Padding = new MarginPadding(12),
-				Spacing = new Vector2(0, 10),
-				Children = new Drawable[]
+				new Container
 				{
-					// Header
-					new SpriteText
-					{
-						Text = "UI Scale",
-						Font = new FontUsage("", 19, "Bold"),
-						Colour = _accentColor
-					},
-					// Description
-					new SpriteText
-					{
-						Text = "Adjust the size of all UI elements",
-						Font = new FontUsage("", 15),
-						Colour = new Color4(160, 160, 160, 255)
-					},
-					// Slider row
-					new FillFlowContainer
+					RelativeSizeAxes = Axes.X,
+					Height = 24,
+					Child = _scaleSlider = new StyledSliderBar
 					{
 						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Horizontal,
-						Spacing = new Vector2(10, 0),
-						Children = new Drawable[]
-						{
-							// Min label
-							new SpriteText
-							{
-								Text = "100%",
-								Font = new FontUsage("", 14),
-								Colour = new Color4(120, 120, 120, 255),
-								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft
-							},
-							// Slider container
-							new Container
-							{
-								RelativeSizeAxes = Axes.X,
-								Height = 24,
-								Width = 0.7f,
-								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft,
-								Children = new Drawable[]
-								{
-									// Track background
-									new Container
-									{
-										RelativeSizeAxes = Axes.X,
-										Height = 4,
-										Anchor = Anchor.CentreLeft,
-										Origin = Anchor.CentreLeft,
-										Masking = true,
-										CornerRadius = 2,
-										Child = new Box
-										{
-											RelativeSizeAxes = Axes.Both,
-											Colour = new Color4(60, 60, 65, 255)
-										}
-									},
-									_scaleSlider = new StyledSliderBar
-									{
-										RelativeSizeAxes = Axes.X,
-										Height = 24,
-										Anchor = Anchor.CentreLeft,
-										Origin = Anchor.CentreLeft,
-										Current = _scaleBindable
-									}
-								}
-							},
-							// Max label
-							new SpriteText
-							{
-								Text = "200%",
-								Font = new FontUsage("", 14),
-								Colour = new Color4(120, 120, 120, 255),
-								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft
-							}
-						}
-					},
-					// Current value display
-					new FillFlowContainer
+						Height = 24,
+						Current = _scaleBindable
+					}
+				},
+				new Container
+				{
+					RelativeSizeAxes = Axes.X,
+					Height = 18,
+					Children = new Drawable[]
 					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Horizontal,
-						Spacing = new Vector2(8, 0),
-						Children = new Drawable[]
+						SettingsLayout.CreateInlineLabel("50%"),
+						new SpriteText
 						{
-							new SpriteText
-							{
-								Text = "Current:",
-								Font = new FontUsage("", 16),
-								Colour = new Color4(180, 180, 180, 255)
-							},
-							_scaleValue = new SpriteText
-							{
-								Text = "100%",
-								Font = new FontUsage("", 19, "Bold"),
-								Colour = Color4.White
-							}
-						}
-					},
-					// Preset buttons
-					new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Horizontal,
-						Spacing = new Vector2(8, 0),
-						Children = new Drawable[]
-						{
-							CreatePresetButton("50%", 0.5f),
-							CreatePresetButton("75%", 0.75f),
-							CreatePresetButton("100%", 1.0f),
-							CreatePresetButton("125%", 1.25f),
-							CreatePresetButton("150%", 1.5f),
-							CreatePresetButton("175%", 1.75f),
-							CreatePresetButton("200%", 2.0f)
+							Text = "200%",
+							Font = new FontUsage("", 13),
+							Colour = StyledButton.Theme.DisabledLabel,
+							Anchor = Anchor.CentreRight,
+							Origin = Anchor.CentreRight
 						}
 					}
-				}
+				},
+				new FillFlowContainer
+				{
+					AutoSizeAxes = Axes.Both,
+					Direction = FillDirection.Horizontal,
+					Spacing = new Vector2(8, 0),
+					Children = new Drawable[]
+					{
+						SettingsLayout.CreateInlineLabel("Current:"),
+						_scaleValue = new SpriteText
+						{
+							Text = "100%",
+							Font = new FontUsage("", 17, "Bold"),
+							Colour = Color4.White
+						}
+					}
+				},
+				SettingsLayout.CreateButtonRow(28,
+					CreatePresetButton("50%", 0.5f),
+					CreatePresetButton("75%", 0.75f),
+					CreatePresetButton("100%", 1.0f),
+					CreatePresetButton("125%", 1.25f)),
+				SettingsLayout.CreateButtonRow(28,
+					CreatePresetButton("150%", 1.5f),
+					CreatePresetButton("175%", 1.75f),
+					CreatePresetButton("200%", 2.0f),
+					new Container())
 			}
 		};
 
-		// Initialize with current value
-		_scaleBindable.Value = ScaledContainer.UIScale;
+		InternalChild = new SettingsSection("UI Scale", "Adjust the size of all UI elements", content);
 
-		// Bind slider changes
+		_scaleBindable.Value = ScaledContainer.UIScale;
 		_scaleBindable.BindValueChanged(e =>
 		{
 			ScaledContainer.UIScale = e.NewValue;
@@ -195,23 +112,19 @@ public partial class UIScalePanel : CompositeDrawable
 			SaveSettings(e.NewValue);
 		});
 
-		// Initialize display
 		UpdateScaleDisplay(ScaledContainer.UIScale);
 	}
 
-	private PresetScaleButton CreatePresetButton(string label, float scale)
+	private StyledButton CreatePresetButton(string label, float scale) => new(label, StyledButtonAppearance.Muted)
 	{
-		return new PresetScaleButton(label, scale, _accentColor)
-		{
-			Action = () => { _scaleBindable.Value = scale; },
-			TooltipText = $"Set window scale to {scale * 100:0}%"
-		};
-	}
+		RelativeSizeAxes = Axes.Both,
+		FontSize = 14,
+		Bold = false,
+		Action = () => _scaleBindable.Value = scale,
+		TooltipText = $"Set window scale to {scale * 100:0}%"
+	};
 
-	private void UpdateScaleDisplay(float scale)
-	{
-		_scaleValue.Text = $"{scale:P0}";
-	}
+	private void UpdateScaleDisplay(float scale) => _scaleValue.Text = $"{scale:P0}";
 
 	private void SaveSettings(float scale)
 	{
@@ -222,94 +135,14 @@ public partial class UIScalePanel : CompositeDrawable
 		Task.Run(async () => await UserSettingsService.SaveAsync());
 	}
 
-	/// <summary>
-	/// Styled slider bar for the UI scale.
-	/// </summary>
 	private partial class StyledSliderBar : BasicSliderBar<float>
 	{
-		private readonly Color4 _accentColor = new(255, 102, 170, 255);
-
 		[BackgroundDependencyLoader]
 		private void load()
 		{
-			BackgroundColour = Color4.Transparent;
-			SelectionColour = _accentColor;
+			BackgroundColour = StyledButton.Theme.DialogInsetBg;
+			SelectionColour = StyledButton.Theme.Accent;
 			KeyboardStep = 0.01f;
-		}
-	}
-
-	/// <summary>
-	/// Preset scale button.
-	/// </summary>
-	private partial class PresetScaleButton : CompositeDrawable, IHasTooltip
-	{
-		public Action? Action { get; set; }
-
-		/// <summary>
-		/// Tooltip text displayed on hover.
-		/// </summary>
-		public LocalisableString TooltipText { get; set; }
-
-		private readonly string _label;
-		private readonly float _scale;
-		private readonly Color4 _accentColor;
-
-		private Box _background = null!;
-		private SpriteText _text = null!;
-
-		private readonly Color4 _normalBg = new(50, 50, 55, 255);
-		private readonly Color4 _hoverBg = new(70, 70, 75, 255);
-
-		public PresetScaleButton(string label, float scale, Color4 accentColor)
-		{
-			_label = label;
-			_scale = scale;
-			_accentColor = accentColor;
-		}
-
-		[BackgroundDependencyLoader]
-		private void load()
-		{
-			Size = new Vector2(60, 28);
-			Masking = true;
-			CornerRadius = 4;
-
-			InternalChildren = new Drawable[]
-			{
-				_background = new Box
-				{
-					RelativeSizeAxes = Axes.Both,
-					Colour = _normalBg
-				},
-				_text = new SpriteText
-				{
-					Text = _label,
-					Font = new FontUsage("", 15),
-					Colour = Color4.White,
-					Anchor = Anchor.Centre,
-					Origin = Anchor.Centre
-				}
-			};
-		}
-
-		protected override bool OnHover(HoverEvent e)
-		{
-			_background.FadeColour(_hoverBg, 100);
-			_text.FadeColour(_accentColor, 100);
-			return base.OnHover(e);
-		}
-
-		protected override void OnHoverLost(HoverLostEvent e)
-		{
-			_background.FadeColour(_normalBg, 100);
-			_text.FadeColour(Color4.White, 100);
-			base.OnHoverLost(e);
-		}
-
-		protected override bool OnClick(ClickEvent e)
-		{
-			Action?.Invoke();
-			return true;
 		}
 	}
 }

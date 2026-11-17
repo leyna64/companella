@@ -212,19 +212,19 @@ public class DanDefinition
 	/// Gets the display name for this dan.
 	/// </summary>
 	[JsonIgnore]
-	public string DisplayName => Label;
+	public string DisplayName => DanLabelFormatter.ToDisplayLabel(Label);
 
 	/// <summary>
 	/// Gets the low variant display name.
 	/// </summary>
 	[JsonIgnore]
-	public string LowDisplayName => $"{Label}-";
+	public string LowDisplayName => $"{DanLabelFormatter.ToDisplayLabel(Label)}-";
 
 	/// <summary>
 	/// Gets the high variant display name.
 	/// </summary>
 	[JsonIgnore]
-	public string HighDisplayName => $"{Label}+";
+	public string HighDisplayName => $"{DanLabelFormatter.ToDisplayLabel(Label)}+";
 
 	/// <summary>
 	/// Calculates combined distance to a given MSD + Interlude input.
@@ -258,16 +258,11 @@ public class DanClassificationResult
 
 	/// <summary>
 	/// Gets the full display name including variant.
-	/// Uses --/-/+/++ notation for variants.
+	/// Daniel mode uses only -/+/none; ONNX uses --/-/+/++ from raw output.
 	/// </summary>
-	public string DisplayName => Variant switch
-	{
-		"--" => $"{Label}--",
-		"-" => $"{Label}-",
-		"+" => $"{Label}+",
-		"++" => $"{Label}++",
-		_ => Label
-	};
+	public string DisplayName => UsedDanielCalculator || !RawModelOutput.HasValue
+		? DanLabelFormatter.FormatWithVariant(Label, Variant)
+		: DanLabelFormatter.FormatWithRawVariant(Label, RawModelOutput.Value);
 
 	/// <summary>
 	/// Confidence score (0.0 - 1.0).
@@ -305,4 +300,14 @@ public class DanClassificationResult
 	/// Only set when using ONNX model inference.
 	/// </summary>
 	public float? RawModelOutput { get; set; }
+
+	/// <summary>
+	/// True when the result came from the Daniel rice calculator.
+	/// </summary>
+	public bool UsedDanielCalculator { get; set; }
+
+	/// <summary>
+	/// Daniel star rating when <see cref="UsedDanielCalculator"/> is true.
+	/// </summary>
+	public double? DanielStarRating { get; set; }
 }

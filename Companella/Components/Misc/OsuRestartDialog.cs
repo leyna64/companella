@@ -5,7 +5,6 @@ using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
-using osu.Framework.Graphics.Shapes;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.UserInterface;
 using osu.Framework.Input.Events;
@@ -27,10 +26,10 @@ public partial class OsuRestartDialog : CompositeDrawable
 	private TextFlowContainer _messageText = null!;
 	private StyledTextBox _argsTextBox = null!;
 	private OsuRestartPresetDropdown _presetDropdown = null!;
-	private ConfirmationDialogButton _editPresetsButton = null!;
-	private ConfirmationDialogButton _confirmButton = null!;
-	private ConfirmationDialogButton _cancelButton = null!;
-	private ConfirmationDialogButton? _skipButton;
+	private StyledButton _editPresetsButton = null!;
+	private StyledButton _confirmButton = null!;
+	private StyledButton _cancelButton = null!;
+	private StyledButton? _skipButton;
 	private FillFlowContainer _buttonContainer = null!;
 	private OsuRestartPresetEditDialog? _presetEditDialog;
 
@@ -39,7 +38,6 @@ public partial class OsuRestartDialog : CompositeDrawable
 
 	/// <summary>
 	/// Event raised when the user confirms the action.
-	/// Provides the command line arguments to use.
 	/// </summary>
 	public event Action<string>? Confirmed;
 
@@ -52,11 +50,6 @@ public partial class OsuRestartDialog : CompositeDrawable
 	/// Event raised when the dialog is closed (confirmed, skipped, or cancelled).
 	/// </summary>
 	public event Action? Closed;
-
-	private readonly Color4 _accentColor = new(255, 102, 170, 255);
-	private readonly Color4 _dangerColor = new(255, 80, 80, 255);
-	private readonly Color4 _dialogBgColor = new(25, 25, 30, 255);
-	private readonly Color4 _dialogBorderColor = new(60, 60, 70, 255);
 
 	public OsuRestartDialog()
 	{
@@ -71,190 +64,92 @@ public partial class OsuRestartDialog : CompositeDrawable
 
 		InternalChildren = new Drawable[]
 		{
-			// Dim background
-			new Box
+			StyledDialog.CreateDimBackground(),
+			_dialogContainer = StyledDialog.CreateShell(new Vector2(500, 340), out var content, clipBackground: false),
+			_presetEditDialog = new OsuRestartPresetEditDialog()
+		};
+
+		content.Children = new Drawable[]
+		{
+			new FillFlowContainer
 			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = new Color4(0, 0, 0, 220)
-			},
-			// Dialog container with shadow - no masking to allow dropdown to overflow
-			_dialogContainer = new Container
-			{
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre,
-				Size = new Vector2(500, 340),
+				RelativeSizeAxes = Axes.X,
+				AutoSizeAxes = Axes.Y,
+				Direction = FillDirection.Vertical,
+				Spacing = new Vector2(0, 14),
 				Children = new Drawable[]
 				{
-					// Background with masking for rounded corners
-					new Container
+					_titleText = StyledDialog.CreateTitle("Restart osu!"),
+					_messageText = StyledDialog.CreateMessageFlow("osu! will be restarted."),
+					new FillFlowContainer
 					{
-						RelativeSizeAxes = Axes.Both,
-						Masking = true,
-						CornerRadius = 12,
+						RelativeSizeAxes = Axes.X,
+						AutoSizeAxes = Axes.Y,
+						Direction = FillDirection.Vertical,
+						Spacing = new Vector2(0, 6),
+						Depth = -1,
 						Children = new Drawable[]
 						{
-							// Shadow layer
-							new Box
-							{
-								RelativeSizeAxes = Axes.Both,
-								Colour = new Color4(0, 0, 0, 100),
-								Margin = new MarginPadding(2)
-							},
-							// Main background
-							new Box
-							{
-								RelativeSizeAxes = Axes.Both,
-								Colour = _dialogBgColor
-							},
-							// Border
+							StyledDialog.CreateFieldLabel("Preset"),
 							new Container
 							{
-								RelativeSizeAxes = Axes.Both,
-								Masking = true,
-								CornerRadius = 12,
-								BorderColour = _dialogBorderColor,
-								BorderThickness = 1.5f,
-								Child = new Box
+								RelativeSizeAxes = Axes.X,
+								Height = 32,
+								Children = new Drawable[]
 								{
-									RelativeSizeAxes = Axes.Both,
-									Alpha = 0,
-									AlwaysPresent = true
+									new Container
+									{
+										RelativeSizeAxes = Axes.Both,
+										Padding = new MarginPadding { Right = 46 },
+										Child = _presetDropdown = new OsuRestartPresetDropdown
+										{
+											RelativeSizeAxes = Axes.Both,
+											Items = _presets
+										}
+									},
+									_editPresetsButton = new StyledButton("Edit", StyledButtonAppearance.Muted)
+									{
+										Anchor = Anchor.CentreRight,
+										Origin = Anchor.CentreRight,
+										Size = new Vector2(42, 32)
+									}
 								}
 							}
 						}
 					},
-					// Content container - outside masking so dropdown can overflow
-					new Container
+					new FillFlowContainer
 					{
-						RelativeSizeAxes = Axes.Both,
-						Padding = new MarginPadding(24),
+						RelativeSizeAxes = Axes.X,
+						AutoSizeAxes = Axes.Y,
+						Direction = FillDirection.Vertical,
+						Spacing = new Vector2(0, 6),
+						Depth = 1,
 						Children = new Drawable[]
 						{
-							// Top content (title, message, args)
-							new FillFlowContainer
+							StyledDialog.CreateFieldLabel("Command Line Arguments"),
+							_argsTextBox = new StyledTextBox
 							{
 								RelativeSizeAxes = Axes.X,
-								AutoSizeAxes = Axes.Y,
-								Direction = FillDirection.Vertical,
-								Spacing = new Vector2(0, 14),
-								Children = new Drawable[]
-								{
-									// Title
-									_titleText = new SpriteText
-									{
-										Anchor = Anchor.TopCentre,
-										Origin = Anchor.TopCentre,
-										Text = "Restart osu!",
-										Font = new FontUsage("", 22, "Bold"),
-										Colour = _accentColor
-									},
-									// Message with proper wrapping
-									_messageText = new TextFlowContainer(s =>
-									{
-										s.Font = new FontUsage("", 14);
-										s.Colour = new Color4(200, 200, 200, 255);
-									})
-									{
-										Anchor = Anchor.TopCentre,
-										Origin = Anchor.TopCentre,
-										RelativeSizeAxes = Axes.X,
-										AutoSizeAxes = Axes.Y,
-										TextAnchor = Anchor.TopCentre,
-										Text = "osu! will be restarted."
-									},
-									// Preset row - Depth = -1 ensures dropdown menu renders on top of siblings
-									new FillFlowContainer
-									{
-										RelativeSizeAxes = Axes.X,
-										AutoSizeAxes = Axes.Y,
-										Direction = FillDirection.Vertical,
-										Spacing = new Vector2(0, 6),
-										Depth = -1,
-										Children = new Drawable[]
-										{
-											new SpriteText
-											{
-												Text = "Preset",
-												Font = new FontUsage("", 14),
-												Colour = new Color4(160, 160, 160, 255)
-											},
-											new Container
-											{
-												RelativeSizeAxes = Axes.X,
-												Height = 32,
-												Children = new Drawable[]
-												{
-													_presetDropdown = new OsuRestartPresetDropdown
-													{
-														RelativeSizeAxes = Axes.X,
-														Width = 0.88f,
-														Items = _presets
-													},
-													_editPresetsButton = new ConfirmationDialogButton("Edit")
-													{
-														Anchor = Anchor.CentreRight,
-														Origin = Anchor.CentreRight,
-														Size = new Vector2(38, 32),
-														BackgroundColour = new Color4(70, 70, 80, 255)
-													}
-												}
-											}
-										}
-									},
-									// Arguments row
-									new FillFlowContainer
-									{
-										RelativeSizeAxes = Axes.X,
-										AutoSizeAxes = Axes.Y,
-										Direction = FillDirection.Vertical,
-										Spacing = new Vector2(0, 6),
-										Depth = 1, // Render behind preset row
-										Children = new Drawable[]
-										{
-											new SpriteText
-											{
-												Text = "Command Line Arguments",
-												Font = new FontUsage("", 14),
-												Colour = new Color4(160, 160, 160, 255)
-											},
-											_argsTextBox = new StyledTextBox
-											{
-												RelativeSizeAxes = Axes.X,
-												Height = 36,
-												PlaceholderText = "e.g., -devserver mamesosu.net"
-											}
-										}
-									}
-								}
-							},
-							// Button container at bottom
-							_buttonContainer = new FillFlowContainer
-							{
-								Anchor = Anchor.BottomCentre,
-								Origin = Anchor.BottomCentre,
-								AutoSizeAxes = Axes.Both,
-								Direction = FillDirection.Horizontal,
-								Spacing = new Vector2(10, 0),
-								Children = new Drawable[]
-								{
-									_cancelButton = new ConfirmationDialogButton("Cancel")
-									{
-										Size = new Vector2(110, 40),
-										BackgroundColour = new Color4(70, 70, 75, 255)
-									},
-									_confirmButton = new ConfirmationDialogButton("Restart")
-									{
-										Size = new Vector2(110, 40),
-										BackgroundColour = _dangerColor
-									}
-								}
+								Height = 36,
+								PlaceholderText = "e.g., -devserver mamesosu.net"
 							}
 						}
 					}
 				}
 			},
-			// Preset edit dialog (hidden by default)
-			_presetEditDialog = new OsuRestartPresetEditDialog()
+			_buttonContainer = new FillFlowContainer
+			{
+				Anchor = Anchor.BottomCentre,
+				Origin = Anchor.BottomCentre,
+				AutoSizeAxes = Axes.Both,
+				Direction = FillDirection.Horizontal,
+				Spacing = new Vector2(10, 0),
+				Children = new Drawable[]
+				{
+					_cancelButton = StyledDialog.CreateCancelButton(),
+					_confirmButton = StyledDialog.CreateDangerButton("Restart")
+				}
+			}
 		};
 
 		_cancelButton.Clicked += OnCancelClicked;
@@ -263,8 +158,8 @@ public partial class OsuRestartDialog : CompositeDrawable
 		_presetDropdown.Current.ValueChanged += OnPresetChanged;
 		_presetEditDialog.PresetSaved += OnPresetSaved;
 
-		// Select first preset by default
-		if (_presets.Count > 0) _presetDropdown.Current.Value = _presets[0];
+		if (_presets.Count > 0)
+			_presetDropdown.Current.Value = _presets[0];
 	}
 
 	private void LoadPresets()
@@ -285,16 +180,17 @@ public partial class OsuRestartDialog : CompositeDrawable
 	private void OnPresetChanged(ValueChangedEvent<OsuRestartPreset?> e)
 	{
 		_selectedPreset = e.NewValue;
-		if (_selectedPreset != null) _argsTextBox.Text = _selectedPreset.Arguments;
+		if (_selectedPreset != null)
+			_argsTextBox.Text = _selectedPreset.Arguments;
 	}
 
 	private void OnEditPresetsClicked()
 	{
-		// Show edit dialog for the selected preset
 		var index = _selectedPreset != null ? _presets.IndexOf(_selectedPreset) : 0;
 		if (index >= 0 && index < _presets.Count)
 			_presetEditDialog?.Show(index, _presets[index]);
-		else if (_presets.Count > 0) _presetEditDialog?.Show(0, _presets[0]);
+		else if (_presets.Count > 0)
+			_presetEditDialog?.Show(0, _presets[0]);
 	}
 
 	private void OnPresetSaved(int index, OsuRestartPreset preset)
@@ -313,13 +209,13 @@ public partial class OsuRestartDialog : CompositeDrawable
 		var currentSelection = _selectedPreset;
 		_presetDropdown.Items = _presets;
 
-		// Try to keep the same selection
 		if (currentSelection != null)
 		{
 			var matchingPreset = _presets.FirstOrDefault(p => p.Name == currentSelection.Name);
 			if (matchingPreset != null)
 				_presetDropdown.Current.Value = matchingPreset;
-			else if (_presets.Count > 0) _presetDropdown.Current.Value = _presets[0];
+			else if (_presets.Count > 0)
+				_presetDropdown.Current.Value = _presets[0];
 		}
 		else if (_presets.Count > 0)
 		{
@@ -330,20 +226,14 @@ public partial class OsuRestartDialog : CompositeDrawable
 	/// <summary>
 	/// Shows the restart dialog with the specified title and message.
 	/// </summary>
-	/// <param name="title">Dialog title</param>
-	/// <param name="message">Dialog message (supports multi-line)</param>
-	/// <param name="showSkip">Whether to show a Skip button</param>
 	public void Show(string title, string message, bool showSkip = false)
 	{
 		_titleText.Text = title;
 		_messageText.Text = message;
 
-		// Reload presets in case they changed
 		LoadPresets();
 		RefreshDropdown();
 
-		// Handle skip button
-		// Remove all buttons first
 		if (_buttonContainer.Contains(_cancelButton))
 			_buttonContainer.Remove(_cancelButton, false);
 		if (_skipButton != null && _buttonContainer.Contains(_skipButton))
@@ -351,14 +241,9 @@ public partial class OsuRestartDialog : CompositeDrawable
 		if (_buttonContainer.Contains(_confirmButton))
 			_buttonContainer.Remove(_confirmButton, false);
 
-		// Create or remove skip button
 		if (showSkip && _skipButton == null)
 		{
-			_skipButton = new ConfirmationDialogButton("Skip")
-			{
-				Size = new Vector2(110, 40),
-				BackgroundColour = new Color4(100, 100, 110, 255)
-			};
+			_skipButton = StyledDialog.CreateSecondaryButton("Skip");
 			_skipButton.Clicked += OnSkipClicked;
 		}
 		else if (!showSkip && _skipButton != null)
@@ -367,24 +252,18 @@ public partial class OsuRestartDialog : CompositeDrawable
 			_skipButton = null;
 		}
 
-		// Re-add in correct order: Cancel, Skip (if shown), Restart
 		_buttonContainer.Add(_cancelButton);
-		if (showSkip && _skipButton != null) _buttonContainer.Add(_skipButton);
+		if (showSkip && _skipButton != null)
+			_buttonContainer.Add(_skipButton);
 
 		_buttonContainer.Add(_confirmButton);
 
-		// Adjust dialog size based on content
-		var estimatedHeight = 340f;
-		if (message.Length > 100)
-			estimatedHeight = 370f;
+		var estimatedHeight = message.Length > 100 ? 370f : 340f;
 		if (showSkip)
 			estimatedHeight += 10f;
 
 		_dialogContainer.ResizeHeightTo(estimatedHeight, 0);
-
-		// Show with animation
-		this.FadeIn(200, Easing.OutQuint);
-		_dialogContainer.ScaleTo(0.9f).ScaleTo(1f, 200, Easing.OutQuint);
+		StyledDialog.PlayShowAnimation(this, _dialogContainer);
 	}
 
 	/// <summary>
@@ -392,27 +271,20 @@ public partial class OsuRestartDialog : CompositeDrawable
 	/// </summary>
 	public new void Hide()
 	{
-		this.FadeOut(200, Easing.OutQuint);
+		StyledDialog.PlayHideAnimation(this);
 		Closed?.Invoke();
 	}
 
 	/// <summary>
 	/// Gets the currently entered command line arguments.
 	/// </summary>
-	public string GetArguments()
-	{
-		return _argsTextBox.Text?.Trim() ?? "";
-	}
+	public string GetArguments() => _argsTextBox.Text?.Trim() ?? string.Empty;
 
-	private void OnCancelClicked()
-	{
-		Hide();
-	}
+	private void OnCancelClicked() => Hide();
 
 	private void OnConfirmClicked()
 	{
-		var arguments = GetArguments();
-		Confirmed?.Invoke(arguments);
+		Confirmed?.Invoke(GetArguments());
 		Hide();
 	}
 
@@ -422,11 +294,7 @@ public partial class OsuRestartDialog : CompositeDrawable
 		Hide();
 	}
 
-	protected override bool OnClick(ClickEvent e)
-	{
-		// Prevent clicks from passing through
-		return true;
-	}
+	protected override bool OnClick(ClickEvent e) => true;
 }
 
 /// <summary>
@@ -447,6 +315,6 @@ public partial class OsuRestartPresetDropdown : BasicDropdown<OsuRestartPreset?>
 		if (string.IsNullOrEmpty(item.Arguments))
 			return $"{item.Name} (no args)";
 
-		return $"{item.Name}";
+		return item.Name;
 	}
 }

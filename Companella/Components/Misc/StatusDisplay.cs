@@ -1,3 +1,4 @@
+using Companella.Components.Layout;
 using System.Globalization;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
@@ -23,7 +24,7 @@ public enum StatusType
 public partial class StatusDisplay : CompositeDrawable
 {
 	private FillFlowContainer _logContainer = null!;
-	private BasicScrollContainer _scrollContainer = null!;
+	private ChainedScrollContainer _scrollContainer = null!;
 	private Box _latestIndicator = null!;
 	private const int _maxLogEntries = 50;
 
@@ -66,7 +67,7 @@ public partial class StatusDisplay : CompositeDrawable
 										Font = new FontUsage("", 15, "Bold"),
 										Colour = new Color4(150, 150, 150, 255)
 									},
-									_scrollContainer = new BasicScrollContainer
+									_scrollContainer = new ChainedScrollContainer
 									{
 										RelativeSizeAxes = Axes.Both,
 										Padding = new MarginPadding { Top = 18 },

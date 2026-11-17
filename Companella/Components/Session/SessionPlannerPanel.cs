@@ -1,3 +1,5 @@
+using Companella.Components.Misc;
+using Companella.Components.Settings;
 using Companella.Models.Session;
 using Companella.Services.Analysis;
 using Companella.Services.Beatmap;
@@ -36,12 +38,12 @@ public partial class SessionPlannerPanel : CompositeDrawable
 
 	private MsdCurveGraph _curveGraph = null!;
 	private DurationSlider _durationSlider = null!;
-	private SessionGenerateButton _generateButton = null!;
-	private SessionSmallButton _resetButton = null!;
-	private SessionSmallButton _fromSessionsButton = null!;
+	private StyledButton _generateButton = null!;
+	private StyledButton _resetButton = null!;
+	private StyledButton _fromSessionsButton = null!;
 	private SessionModeDropdown _sessionModeDropdown = null!;
-	private SpriteText _statusText = null!;
-	private SpriteText _summaryText = null!;
+	private TextFlowContainer _statusText = null!;
+	private TextFlowContainer _summaryText = null!;
 	private FillFlowContainer _previewContainer = null!;
 	private SessionPlanningSpinner _loadingSpinner = null!;
 
@@ -79,137 +81,96 @@ public partial class SessionPlannerPanel : CompositeDrawable
 		_plannerService = new SessionPlannerService(MapsDatabase, CollectionService, _beatmapIndexer);
 		_plannerService.ProgressChanged += OnPlannerProgressChanged;
 
-		InternalChildren = new Drawable[]
+		var content = new FillFlowContainer
 		{
-			new FillFlowContainer
+			RelativeSizeAxes = Axes.X,
+			AutoSizeAxes = Axes.Y,
+			Direction = FillDirection.Vertical,
+			Spacing = new Vector2(0, 10),
+			Children = new Drawable[]
 			{
-				RelativeSizeAxes = Axes.X,
-				AutoSizeAxes = Axes.Y,
-				Direction = FillDirection.Vertical,
-				Spacing = new Vector2(0, 10),
-				Children = new Drawable[]
+				SettingsLayout.CreateHint("Right-click: add/remove points. Left-click point: cycle skillset. Drag: move points."),
+				_curveGraph = new MsdCurveGraph
 				{
-					// Header
-					new SpriteText
+					RelativeSizeAxes = Axes.X,
+					Height = 180
+				},
+				new FillFlowContainer
+				{
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Direction = FillDirection.Vertical,
+					Spacing = new Vector2(0, 4),
+					Children = new Drawable[]
 					{
-						Text = "Session Planner",
-						Font = new FontUsage("", 17, "Bold"),
-						Colour = new Color4(180, 180, 180, 255)
-					},
-					// Description
-					new TextFlowContainer(s =>
-					{
-						s.Font = new FontUsage("", 13);
-						s.Colour = new Color4(140, 140, 140, 255);
-					})
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Text = "Right-click: add/remove points | Left-click point: cycle skillset | Drag: move points"
-					},
-					// MSD Curve Graph
-					_curveGraph = new MsdCurveGraph
-					{
-						Size = new Vector2(420, 180)
-					},
-					// Settings row (Duration)
-					new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Horizontal,
-						Spacing = new Vector2(8, 0),
-						Children = new Drawable[]
+						SettingsLayout.CreateHint("Duration:"),
+						_durationSlider = new DurationSlider
 						{
-							new SpriteText
-							{
-								Text = "Duration:",
-								Font = new FontUsage("", 14),
-								Colour = new Color4(160, 160, 160, 255),
-								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft,
-								Width = 80
-							},
-							_durationSlider = new DurationSlider
-							{
-								Width = 180,
-								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft
-							}
+							RelativeSizeAxes = Axes.X
 						}
-					},
-					// Generate button row
-					new FillFlowContainer
+					}
+				},
+				new FillFlowContainer
+				{
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Direction = FillDirection.Vertical,
+					Spacing = new Vector2(0, 8),
+					Children = new Drawable[]
 					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Horizontal,
-						Spacing = new Vector2(8, 0),
-						Children = new Drawable[]
+						_generateButton = new StyledButton("Generate Session", StyledButton.Theme.Accent)
 						{
-							_generateButton = new SessionGenerateButton
+							RelativeSizeAxes = Axes.X,
+							Height = 32,
+							TooltipText = "Generate a practice session based on the curve"
+						},
+						SettingsLayout.CreateButtonRow(28,
+							_resetButton = new StyledButton("Reset", StyledButtonAppearance.Muted)
 							{
-								Size = new Vector2(140, 32),
-								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft,
-								TooltipText = "Generate a practice session based on the curve"
-							},
-							_resetButton = new SessionSmallButton("Reset")
-							{
-								Size = new Vector2(50, 24),
-								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft,
+								RelativeSizeAxes = Axes.Both,
+								FontSize = 14,
+								Bold = false,
 								TooltipText = "Reset curve to default"
-							},
-							_fromSessionsButton = new SessionSmallButton("From Sessions")
-							{
-								Size = new Vector2(95, 24),
-								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft,
-								TooltipText = "Generate curve from your session history"
 							},
 							_sessionModeDropdown = new SessionModeDropdown
 							{
-								Width = 70,
-								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft
-							},
-							_loadingSpinner = new SessionPlanningSpinner
+								RelativeSizeAxes = Axes.Both
+							}),
+						SettingsLayout.CreateButtonRow(28,
+							_fromSessionsButton = new StyledButton("From Sessions", StyledButtonAppearance.Muted)
 							{
-								Size = new Vector2(20),
-								Anchor = Anchor.CentreLeft,
-								Origin = Anchor.CentreLeft,
-								Alpha = 0
-							}
+								RelativeSizeAxes = Axes.Both,
+								FontSize = 14,
+								Bold = false,
+								TooltipText = "Generate curve from your session history"
+							},
+							new Container()),
+						_loadingSpinner = new SessionPlanningSpinner
+						{
+							Size = new Vector2(20),
+							Alpha = 0
 						}
-					},
-					// Status text
-					_statusText = new SpriteText
-					{
-						Text = "Customize the curve and click Generate to create a session",
-						Font = new FontUsage("", 14),
-						Colour = new Color4(120, 120, 120, 255)
-					},
-					// Summary text
-					_summaryText = new SpriteText
-					{
-						Text = "",
-						Font = new FontUsage("", 14),
-						Colour = _accentColor,
-						Alpha = 0
-					},
-					// Preview container for session structure
-					_previewContainer = new FillFlowContainer
-					{
-						RelativeSizeAxes = Axes.X,
-						AutoSizeAxes = Axes.Y,
-						Direction = FillDirection.Vertical,
-						Spacing = new Vector2(0, 4),
-						Alpha = 0
 					}
+				},
+				_statusText = SettingsLayout.CreateStatusText(14, StyledButton.Theme.DisabledLabel),
+				_summaryText = SettingsLayout.CreateStatusText(14, StyledButton.Theme.Accent, 0),
+				_previewContainer = new FillFlowContainer
+				{
+					RelativeSizeAxes = Axes.X,
+					AutoSizeAxes = Axes.Y,
+					Direction = FillDirection.Vertical,
+					Spacing = new Vector2(0, 4),
+					Alpha = 0
 				}
 			}
 		};
+
+		InternalChild = SettingsLayout.CreateSection(
+			"Session Planner",
+			"Build a custom MSD practice curve and generate a session from it",
+			content);
+
+		_statusText.Text = "Customize the curve and click Generate to create a session";
 
 		// Wire up events
 		_generateButton.Clicked += OnGenerateClicked;
@@ -367,7 +328,7 @@ public partial class SessionPlannerPanel : CompositeDrawable
 		_previewContainer.Add(new Container
 		{
 			RelativeSizeAxes = Axes.X,
-			Height = 24,
+			AutoSizeAxes = Axes.Y,
 			Masking = true,
 			CornerRadius = 4,
 			Children = new Drawable[]
@@ -377,31 +338,10 @@ public partial class SessionPlannerPanel : CompositeDrawable
 					RelativeSizeAxes = Axes.Both,
 					Colour = new Color4(_accentColor.R, _accentColor.G, _accentColor.B, 0.15f)
 				},
-				new FillFlowContainer
-				{
-					RelativeSizeAxes = Axes.Both,
-					Direction = FillDirection.Horizontal,
-					Padding = new MarginPadding { Horizontal = 8 },
-					Children = new Drawable[]
-					{
-						new SpriteText
-						{
-							Text = $"{items.Count} maps",
-							Font = new FontUsage("", 15, "Bold"),
-							Colour = _accentColor,
-							Anchor = Anchor.CentreLeft,
-							Origin = Anchor.CentreLeft
-						},
-						new SpriteText
-						{
-							Text = $" | MSD: {minMsd:F1}-{maxMsd:F1} | ~{plan.TotalDurationMinutes:F0}min",
-							Font = new FontUsage("", 14),
-							Colour = new Color4(160, 160, 160, 255),
-							Anchor = Anchor.CentreLeft,
-							Origin = Anchor.CentreLeft
-						}
-					}
-				}
+				SettingsLayout.CreateWrappingText(
+					$"{items.Count} maps | MSD: {minMsd:F1}-{maxMsd:F1} | ~{plan.TotalDurationMinutes:F0} min",
+					14,
+					new Color4(160, 160, 160, 255))
 			}
 		});
 
@@ -453,28 +393,27 @@ public partial class DurationSlider : CompositeDrawable
 		MaxValue = 180
 	};
 
-	private BasicSliderBar<int> _slider = null!;
+	private DurationSliderBar _slider = null!;
 	private SpriteText _valueText = null!;
 
 	public DurationSlider()
 	{
+		RelativeSizeAxes = Axes.X;
 		AutoSizeAxes = Axes.Y;
 	}
 
 	[BackgroundDependencyLoader]
 	private void load()
 	{
-		InternalChild = new FillFlowContainer
+		InternalChild = new Container
 		{
 			RelativeSizeAxes = Axes.X,
-			AutoSizeAxes = Axes.Y,
-			Direction = FillDirection.Horizontal,
-			Spacing = new Vector2(8, 0),
+			Height = 24,
 			Children = new Drawable[]
 			{
-				_slider = new BasicSliderBar<int>
+				_slider = new DurationSliderBar
 				{
-					Width = 100,
+					RelativeSizeAxes = Axes.X,
 					Height = 20,
 					Anchor = Anchor.CentreLeft,
 					Origin = Anchor.CentreLeft,
@@ -484,8 +423,8 @@ public partial class DurationSlider : CompositeDrawable
 				{
 					Font = new FontUsage("", 14),
 					Colour = new Color4(255, 102, 170, 255),
-					Anchor = Anchor.CentreLeft,
-					Origin = Anchor.CentreLeft
+					Anchor = Anchor.CentreRight,
+					Origin = Anchor.CentreRight
 				}
 			}
 		};
@@ -494,163 +433,13 @@ public partial class DurationSlider : CompositeDrawable
 	}
 }
 
-/// <summary>
-/// Small utility button for graph controls.
-/// </summary>
-public partial class SessionSmallButton : CompositeDrawable, IHasTooltip
+public partial class DurationSliderBar : BasicSliderBar<int>
 {
-	private readonly string _label;
-	private Box _background = null!;
-	private Box _hoverOverlay = null!;
-	private SpriteText _labelText = null!;
-	private bool _enabled = true;
-
-	private readonly Color4 _normalColor = new(60, 60, 65, 255);
-	private readonly Color4 _disabledColor = new(45, 45, 50, 255);
-
-	public LocalisableString TooltipText { get; set; }
-	public event Action? Clicked;
-
-	public SessionSmallButton(string label)
-	{
-		_label = label;
-	}
-
 	[BackgroundDependencyLoader]
 	private void load()
 	{
-		Masking = true;
-		CornerRadius = 4;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _normalColor
-			},
-			_hoverOverlay = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = Color4.White,
-				Alpha = 0
-			},
-			_labelText = new SpriteText
-			{
-				Text = _label,
-				Font = new FontUsage("", 14),
-				Colour = new Color4(180, 180, 180, 255),
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre
-			}
-		};
-	}
-
-	public void SetEnabled(bool enabled)
-	{
-		_enabled = enabled;
-		_background?.FadeColour(enabled ? _normalColor : _disabledColor, 150);
-		_labelText?.FadeColour(enabled ? new Color4(180, 180, 180, 255) : new Color4(100, 100, 100, 255), 150);
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		if (_enabled)
-			_hoverOverlay.FadeTo(0.15f, 100);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_hoverOverlay.FadeTo(0, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		if (!_enabled)
-			return false;
-
-		_hoverOverlay.FadeTo(0.3f, 50).Then().FadeTo(0.15f, 100);
-		Clicked?.Invoke();
-		return true;
-	}
-}
-
-/// <summary>
-/// Button for generating a session.
-/// </summary>
-public partial class SessionGenerateButton : CompositeDrawable, IHasTooltip
-{
-	private Box _background = null!;
-	private Box _hoverOverlay = null!;
-	private SpriteText _label = null!;
-	private bool _enabled = true;
-
-	private readonly Color4 _enabledColor = new(255, 102, 170, 255);
-	private readonly Color4 _disabledColor = new(80, 80, 85, 255);
-
-	public LocalisableString TooltipText { get; set; }
-	public event Action? Clicked;
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 6;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _enabledColor
-			},
-			_hoverOverlay = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = Color4.White,
-				Alpha = 0
-			},
-			_label = new SpriteText
-			{
-				Text = "Generate Session",
-				Font = new FontUsage("", 15, "Bold"),
-				Colour = Color4.White,
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre
-			}
-		};
-	}
-
-	public void SetEnabled(bool enabled)
-	{
-		_enabled = enabled;
-		_background.FadeColour(enabled ? _enabledColor : _disabledColor, 150);
-		_label.FadeColour(enabled ? Color4.White : new Color4(120, 120, 120, 255), 150);
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		if (_enabled)
-			_hoverOverlay.FadeTo(0.15f, 100);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_hoverOverlay.FadeTo(0, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		if (!_enabled)
-			return false;
-
-		_hoverOverlay.FadeTo(0.3f, 50).Then().FadeTo(0.15f, 100);
-		Clicked?.Invoke();
-		return true;
+		BackgroundColour = StyledButton.Theme.DialogInsetBg;
+		SelectionColour = StyledButton.Theme.Accent;
 	}
 }
 
@@ -710,8 +499,6 @@ public partial class SessionModeDropdown : CompositeDrawable
 	[BackgroundDependencyLoader]
 	private void load()
 	{
-		Height = 24;
-
 		InternalChildren = new Drawable[]
 		{
 			_buttonContainer = new Container

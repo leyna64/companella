@@ -1,7 +1,9 @@
 using System.Text.Json;
+using Companella.Models.Application;
 using Companella.Models.Beatmap;
 using Companella.Models.Difficulty;
 using Companella.Models.Training;
+using Companella.Services.Analysis.Daniel;
 using Companella.Services.Common;
 
 namespace Companella.Services.Analysis;
@@ -99,14 +101,97 @@ public class DanConfigurationService : IDisposable
 	}
 
 	/// <summary>
+	/// Classifies a map using OsuFile to calculate Interlude and Sunny difficulty.
+	/// </summary>
+	/// <param name="msdScores">MSD skillset scores from MinaCalc.</param>
+	/// <param name="osuFile">The osu file to calculate difficulty from.</param>
+	/// <param name="rate">Rate multiplier (1.0 = normal, 1.5 = DT, 0.75 = HT).</param>
+	/// <param name="calculatorMode">Optional override for rice dan calculator mode.</param>
+	/// <returns>Classification result with dan level and variant.</returns>
+	public DanClassificationResult ClassifyMap(
+		SkillsetScores? msdScores,
+		OsuFile osuFile,
+		float rate = 1.0f,
+		RiceDanCalculatorMode? calculatorMode = null)
+	{
+		double interludeRating = 0;
+		double sunnyRating = 0;
+
+		try
+		{
+			interludeRating = InterludeDifficultyService.CalculateDifficulty(osuFile, rate);
+		}
+		catch (Exception ex)
+		{
+			Logger.Info($"[DanConfig] Interlude calculation failed: {ex.Message}");
+		}
+
+		try
+		{
+			sunnyRating = SunnyDifficultyService.CalculateDifficulty(osuFile, rate);
+		}
+		catch (Exception ex)
+		{
+			Logger.Info($"[DanConfig] Sunny calculation failed: {ex.Message}");
+		}
+
+		return ClassifyMap(msdScores, interludeRating, sunnyRating, osuFile, rate, calculatorMode);
+	}
+
+	/// <summary>
 	/// Classifies a map based on its MSD skillset scores, Interlude and Sunny difficulty ratings.
 	/// Uses ONNX model inference when available, falls back to distance-based classification.
 	/// </summary>
 	/// <param name="msdScores">MSD skillset scores from MinaCalc.</param>
 	/// <param name="interludeRating">Interlude (YAVSRG) difficulty rating.</param>
 	/// <param name="sunnyRating">Sunny difficulty rating.</param>
+	/// <param name="osuFile">Optional osu file for Daniel calculator mode.</param>
+	/// <param name="rate">Rate multiplier when using Daniel.</param>
+	/// <param name="calculatorMode">Optional override for rice dan calculator mode.</param>
 	/// <returns>Classification result with dan level and variant.</returns>
-	public DanClassificationResult ClassifyMap(SkillsetScores? msdScores, double interludeRating, double sunnyRating)
+	public DanClassificationResult ClassifyMap(
+		SkillsetScores? msdScores,
+		double interludeRating,
+		double sunnyRating,
+		OsuFile? osuFile = null,
+		float rate = 1.0f,
+		RiceDanCalculatorMode? calculatorMode = null)
+	{
+		var mode = calculatorMode ?? RiceDanCalculatorMode.CompanellaOnnx;
+
+		if (mode == RiceDanCalculatorMode.Daniel && osuFile != null)
+		{
+			var danielResult = TryClassifyWithDaniel(msdScores, interludeRating, osuFile, rate);
+			if (danielResult != null)
+				return danielResult;
+		}
+
+		return ClassifyWithOnnx(msdScores, interludeRating, sunnyRating);
+	}
+
+	private static DanClassificationResult? TryClassifyWithDaniel(
+		SkillsetScores? msdScores,
+		double interludeRating,
+		OsuFile osuFile,
+		float rate)
+	{
+		if (osuFile.Mode != 3 || (int)osuFile.CircleSize != 4)
+			return null;
+
+		var danielResult = DanielDifficultyService.Calculate(osuFile, rate);
+		if (!danielResult.IsValid || danielResult.IsBelowAlphaThreshold)
+			return null;
+
+		Logger.Info(
+			$"[DanConfig] Daniel base SR={danielResult.BaseStarRating:F4}, pass 1 SR={danielResult.Pass1StarRating:F4}, eval SR={danielResult.StarRating:F4}, Dan={danielResult.DanLabel} ({danielResult.DanNumeric})");
+
+		return DanielClassificationMapper.ToClassificationResult(danielResult, msdScores, interludeRating);
+	}
+
+	private DanClassificationResult ClassifyWithOnnx(
+		SkillsetScores? msdScores,
+		double interludeRating,
+		double sunnyRating)
 	{
 		// Try ONNX model inference first
 		if (_modelService.IsLoaded)
@@ -122,41 +207,6 @@ public class DanConfigurationService : IDisposable
 	public class ModelNotLoadedException : Exception
 	{
 		public ModelNotLoadedException() : base("Model not loaded") { }
-	}
-
-	/// <summary>
-	/// Classifies a map using OsuFile to calculate Interlude and Sunny difficulty.
-	/// </summary>
-	/// <param name="msdScores">MSD skillset scores from MinaCalc.</param>
-	/// <param name="osuFile">The osu file to calculate difficulty from.</param>
-	/// <param name="rate">Rate multiplier (1.0 = normal, 1.5 = DT, 0.75 = HT).</param>
-	/// <returns>Classification result with dan level and variant.</returns>
-	public DanClassificationResult ClassifyMap(SkillsetScores? msdScores, OsuFile osuFile, float rate = 1.0f)
-	{
-		double interludeRating = 0;
-		double sunnyRating = 0;
-
-		try
-		{
-			var interludeService = new InterludeDifficultyService();
-			interludeRating = InterludeDifficultyService.CalculateDifficulty(osuFile, rate);
-		}
-		catch (Exception ex)
-		{
-			Logger.Info($"[DanConfig] Interlude calculation failed: {ex.Message}");
-		}
-
-		try
-		{
-			var sunnyService = new SunnyDifficultyService();
-			sunnyRating = SunnyDifficultyService.CalculateDifficulty(osuFile, rate);
-		}
-		catch (Exception ex)
-		{
-			Logger.Info($"[DanConfig] Sunny calculation failed: {ex.Message}");
-		}
-
-		return ClassifyMap(msdScores, interludeRating, sunnyRating);
 	}
 
 	/// <summary>

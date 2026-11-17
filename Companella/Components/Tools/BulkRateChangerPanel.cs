@@ -1,5 +1,7 @@
 using System.Globalization;
+using Companella.Components.Misc;
 using Companella.Components.Session;
+using Companella.Components.Settings;
 using Companella.Models.Application;
 using Companella.Services.Common;
 using Companella.Services.Tools;
@@ -30,7 +32,7 @@ public partial class BulkRateChangerPanel : CompositeDrawable
 	private StyledTextBox _maxRateTextBox = null!;
 	private StyledTextBox _stepTextBox = null!;
 	private StyledTextBox _formatTextBox = null!;
-	private ModernButton _applyButton = null!;
+	private StyledButton _applyButton = null!;
 	private SpriteText _summaryText = null!;
 	private SpriteText _ratesPreviewText = null!;
 	private FillFlowContainer _presetContainer = null!;
@@ -40,8 +42,8 @@ public partial class BulkRateChangerPanel : CompositeDrawable
 	private BasicSliderBar<double> _hpSlider = null!;
 	private SpriteText _odValueText = null!;
 	private SpriteText _hpValueText = null!;
-	private LockButton _odLockButton = null!;
-	private LockButton _hpLockButton = null!;
+	private StyledButton _odLockButton = null!;
+	private StyledButton _hpLockButton = null!;
 
 	private List<BulkRatePreset> _presets = BulkRatePreset.GetDefaults();
 
@@ -194,11 +196,14 @@ public partial class BulkRateChangerPanel : CompositeDrawable
 									Origin = Anchor.CentreRight,
 									Margin = new MarginPadding { Right = 35 }
 								},
-								_odLockButton = new LockButton
+								_odLockButton = new StyledButton("U", StyledButtonAppearance.Toggle)
 								{
 									Size = new Vector2(24, 24),
 									Anchor = Anchor.CentreRight,
 									Origin = Anchor.CentreRight,
+									SelectedText = "L",
+									ToggleOnClick = true,
+									FontSize = 12,
 									TooltipText = "Lock OD value when changing maps"
 								}
 							}
@@ -248,11 +253,14 @@ public partial class BulkRateChangerPanel : CompositeDrawable
 									Origin = Anchor.CentreRight,
 									Margin = new MarginPadding { Right = 35 }
 								},
-								_hpLockButton = new LockButton
+								_hpLockButton = new StyledButton("U", StyledButtonAppearance.Toggle)
 								{
 									Size = new Vector2(24, 24),
 									Anchor = Anchor.CentreRight,
 									Origin = Anchor.CentreRight,
+									SelectedText = "L",
+									ToggleOnClick = true,
+									FontSize = 12,
 									TooltipText = "Lock HP value when changing maps"
 								}
 							}
@@ -298,7 +306,7 @@ public partial class BulkRateChangerPanel : CompositeDrawable
 						}
 					},
 					// Apply Button
-					_applyButton = new ModernButton("Create All Beatmaps")
+					_applyButton = new StyledButton("Create All Beatmaps", StyledButton.Theme.SuccessFill)
 					{
 						RelativeSizeAxes = Axes.X,
 						Height = 40,
@@ -327,8 +335,8 @@ public partial class BulkRateChangerPanel : CompositeDrawable
 		// OD/HP slider events
 		_odSlider.Current.ValueChanged += e => OnOdSliderChanged(e.NewValue);
 		_hpSlider.Current.ValueChanged += e => OnHpSliderChanged(e.NewValue);
-		_odLockButton.LockChanged += OnOdLockChanged;
-		_hpLockButton.LockChanged += OnHpLockChanged;
+		_odLockButton.SelectedChanged += OnOdLockChanged;
+		_hpLockButton.SelectedChanged += OnHpLockChanged;
 
 		UpdatePreview();
 	}
@@ -385,13 +393,16 @@ public partial class BulkRateChangerPanel : CompositeDrawable
 		{
 			var preset = _presets[i];
 			var index = i;
-			buttons.Add(new PresetButton(preset.Name, preset.GetSubtitle())
+			var button = new StyledButton(preset.Name)
 			{
 				Size = new Vector2(90, 36),
+				Subtitle = preset.GetSubtitle(),
+				FontSize = 15,
 				Action = () => ApplyPreset(preset),
-				RightClickAction = () => PresetEditRequested?.Invoke(index, _presets[index]),
 				TooltipText = preset.GetTooltip() + " (right-click to edit)"
-			});
+			};
+			button.RightClicked += () => PresetEditRequested?.Invoke(index, _presets[index]);
+			buttons.Add(button);
 		}
 
 		return buttons.ToArray();
@@ -460,40 +471,8 @@ public partial class BulkRateChangerPanel : CompositeDrawable
 		UpdatePreview();
 	}
 
-	private static Container CreateSection(string title, Drawable[] content)
-	{
-		return new Container
-		{
-			RelativeSizeAxes = Axes.X,
-			AutoSizeAxes = Axes.Y,
-			Children = new Drawable[]
-			{
-				new FillFlowContainer
-				{
-					RelativeSizeAxes = Axes.X,
-					AutoSizeAxes = Axes.Y,
-					Direction = FillDirection.Vertical,
-					Spacing = new Vector2(0, 6),
-					Children = new Drawable[]
-					{
-						new SpriteText
-						{
-							Text = title,
-							Font = new FontUsage("", 15, "Bold"),
-							Colour = new Color4(180, 180, 180, 255)
-						},
-						new FillFlowContainer
-						{
-							RelativeSizeAxes = Axes.X,
-							AutoSizeAxes = Axes.Y,
-							Direction = FillDirection.Vertical,
-							Children = content
-						}
-					}
-				}
-			}
-		};
-	}
+	private static SettingsSection CreateSection(string title, Drawable[] content) =>
+		SettingsLayout.CreateSection(title, content);
 
 	private static Container CreateLabeledInput(string label, out StyledTextBox textBox, string defaultValue,
 		float width)
@@ -661,115 +640,5 @@ public partial class BulkRateChangerPanel : CompositeDrawable
 	public void SetEnabled(bool enabled)
 	{
 		_applyButton.Enabled = enabled;
-	}
-}
-
-/// <summary>
-/// Preset button with title and subtitle.
-/// </summary>
-public partial class PresetButton : CompositeDrawable, IHasTooltip
-{
-	private readonly string _title;
-	private readonly string _subtitle;
-	public Action? Action { get; set; }
-	public Action? RightClickAction { get; set; }
-
-	/// <summary>
-	/// Tooltip text displayed on hover.
-	/// </summary>
-	public LocalisableString TooltipText { get; set; }
-
-	private Box _background = null!;
-	private Box _hoverOverlay = null!;
-
-	private readonly Color4 _normalBg = new(45, 45, 50, 255);
-	private readonly Color4 _hoverBg = new(55, 55, 60, 255);
-
-	public PresetButton(string title, string subtitle)
-	{
-		_title = title;
-		_subtitle = subtitle;
-	}
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 6;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _normalBg
-			},
-			_hoverOverlay = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = Color4.White,
-				Alpha = 0
-			},
-			new FillFlowContainer
-			{
-				RelativeSizeAxes = Axes.Both,
-				Direction = FillDirection.Vertical,
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre,
-				Spacing = new Vector2(0, 1),
-				Children = new Drawable[]
-				{
-					new SpriteText
-					{
-						Text = _title,
-						Font = new FontUsage("", 15, "Bold"),
-						Colour = Color4.White,
-						Anchor = Anchor.TopCentre,
-						Origin = Anchor.TopCentre
-					},
-					new SpriteText
-					{
-						Text = _subtitle,
-						Font = new FontUsage("", 12),
-						Colour = new Color4(140, 140, 140, 255),
-						Anchor = Anchor.TopCentre,
-						Origin = Anchor.TopCentre
-					}
-				}
-			}
-		};
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		_hoverOverlay.FadeTo(0.1f, 100);
-		_background.FadeColour(_hoverBg, 100);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_hoverOverlay.FadeTo(0, 100);
-		_background.FadeColour(_normalBg, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnMouseDown(MouseDownEvent e)
-	{
-		if (e.Button == osuTK.Input.MouseButton.Right)
-		{
-			RightClickAction?.Invoke();
-			_hoverOverlay.FadeTo(0.2f, 50).Then().FadeTo(0.1f, 100);
-			return true;
-		}
-
-		return base.OnMouseDown(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		Action?.Invoke();
-		_hoverOverlay.FadeTo(0.2f, 50).Then().FadeTo(0.1f, 100);
-		return true;
 	}
 }

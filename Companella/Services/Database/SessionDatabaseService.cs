@@ -19,10 +19,14 @@ public class SessionDatabaseService : IDisposable
 	/// <summary>
 	/// Creates a new SessionDatabaseService.
 	/// </summary>
-	public SessionDatabaseService()
+	public SessionDatabaseService() : this(DataPaths.SessionsDatabase)
+	{
+	}
+
+	internal SessionDatabaseService(string databasePath)
 	{
 		// Use DataPaths for AppData-based storage
-		_databasePath = DataPaths.SessionsDatabase;
+		_databasePath = databasePath;
 		_connectionString = $"Data Source={_databasePath}";
 
 		InitializeDatabase();
@@ -754,7 +758,7 @@ public class SessionDatabaseService : IDisposable
 	/// <summary>
 	/// Updates the replay information for a play.
 	/// </summary>
-	public bool UpdateReplayInfo(long playId, string replayHash, string replayPath)
+	public bool UpdateReplayInfo(long playId, string replayHash, string replayPath, double? accuracy = null, int? misses = null)
 	{
 		try
 		{
@@ -763,15 +767,31 @@ public class SessionDatabaseService : IDisposable
 
 			var query = @"
                 UPDATE SessionPlays 
-                SET ReplayHash = @ReplayHash, ReplayPath = @ReplayPath
+                SET ReplayHash = @ReplayHash, ReplayPath = @ReplayPath,
+                    Accuracy = COALESCE(@Accuracy, Accuracy), Misses = COALESCE(@Misses, Misses),
+                    Grade = COALESCE(@Grade, Grade)
                 WHERE Id = @Id";
 
 			using var cmd = new SqliteCommand(query, connection);
 			cmd.Parameters.AddWithValue("@Id", playId);
 			cmd.Parameters.AddWithValue("@ReplayHash", replayHash);
 			cmd.Parameters.AddWithValue("@ReplayPath", replayPath);
+			cmd.Parameters.AddWithValue("@Accuracy", (object?)accuracy ?? DBNull.Value);
+			cmd.Parameters.AddWithValue("@Misses", (object?)misses ?? DBNull.Value);
+			cmd.Parameters.AddWithValue("@Grade", accuracy.HasValue && misses.HasValue ? SessionPlayResult.CalculateGrade(accuracy.Value, misses.Value, PlayStatus.Completed) : DBNull.Value);
 
 			var affected = cmd.ExecuteNonQuery();
+			if (affected > 0 && accuracy.HasValue)
+			{
+				using var totals = connection.CreateCommand();
+				totals.CommandText = @"UPDATE Sessions SET
+                    AverageAccuracy = (SELECT AVG(Accuracy) FROM SessionPlays WHERE SessionId = Sessions.Id),
+                    BestAccuracy = (SELECT MAX(Accuracy) FROM SessionPlays WHERE SessionId = Sessions.Id),
+                    WorstAccuracy = (SELECT MIN(Accuracy) FROM SessionPlays WHERE SessionId = Sessions.Id)
+                    WHERE Id = (SELECT SessionId FROM SessionPlays WHERE Id = @PlayId)";
+				totals.Parameters.AddWithValue("@PlayId", playId);
+				totals.ExecuteNonQuery();
+			}
 			if (affected > 0) Logger.Info($"[SessionDB] Updated replay info for play {playId}");
 
 			return affected > 0;
@@ -833,7 +853,7 @@ public class SessionDatabaseService : IDisposable
 			var query = @"
                 SELECT Id, SessionId, BeatmapPath, BeatmapHash, Accuracy, Misses, PauseCount, Grade, Status, SessionTime, RecordedAt, HighestMsdValue, DominantSkillset, ReplayHash, ReplayPath, Rate
                 FROM SessionPlays
-                WHERE BeatmapHash = @BeatmapHash AND (ReplayPath IS NULL OR ReplayPath = '')
+                WHERE BeatmapHash = @BeatmapHash COLLATE NOCASE AND (ReplayPath IS NULL OR ReplayPath = '')
                 ORDER BY RecordedAt DESC";
 
 			using var cmd = new SqliteCommand(query, connection);

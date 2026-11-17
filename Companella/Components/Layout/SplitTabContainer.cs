@@ -1,3 +1,4 @@
+using Companella.Components.Misc;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
@@ -22,11 +23,6 @@ public partial class SplitTabContainer : CompositeDrawable
 	private Container _contentContainer = null!;
 	private Box _selectionIndicator = null!;
 	private SidebarButton[] _sidebarButtons = null!;
-
-	private readonly Color4 _accentColor = new(255, 102, 170, 255);
-	private readonly Color4 _inactiveColor = new(150, 150, 150, 255);
-	private readonly Color4 _sidebarBgColor = new(25, 25, 30, 255);
-	private readonly Color4 _contentBgColor = new(20, 20, 25, 255);
 
 	private const float _sidebarWidth = 140f;
 	private const float _buttonHeight = 36f;
@@ -64,38 +60,33 @@ public partial class SplitTabContainer : CompositeDrawable
 				{
 					new Drawable[]
 					{
-						// Sidebar
 						_sidebarContainer = new Container
 						{
 							RelativeSizeAxes = Axes.Both,
 							Children = new Drawable[]
 							{
-								// Background
 								new Box
 								{
 									RelativeSizeAxes = Axes.Both,
-									Colour = _sidebarBgColor
+									Colour = StyledButton.Theme.DialogBg
 								},
-								// Right border
 								new Box
 								{
 									Width = 1,
 									RelativeSizeAxes = Axes.Y,
 									Anchor = Anchor.TopRight,
 									Origin = Anchor.TopRight,
-									Colour = new Color4(50, 50, 55, 255)
+									Colour = StyledButton.Theme.DialogInsetBg
 								},
-								// Selection indicator
 								_selectionIndicator = new Box
 								{
 									Width = 3,
 									Height = _buttonHeight,
-									Colour = _accentColor,
+									Colour = StyledButton.Theme.Accent,
 									Anchor = Anchor.TopLeft,
 									Origin = Anchor.TopLeft
 								},
-								// Scrollable button list
-								new BasicScrollContainer
+								new ChainedScrollContainer
 								{
 									RelativeSizeAxes = Axes.Both,
 									ClampExtension = 10,
@@ -110,20 +101,17 @@ public partial class SplitTabContainer : CompositeDrawable
 								}
 							}
 						},
-						// Content area
 						new Container
 						{
 							RelativeSizeAxes = Axes.Both,
 							Children = new Drawable[]
 							{
-								// Background
 								new Box
 								{
 									RelativeSizeAxes = Axes.Both,
-									Colour = _contentBgColor
+									Colour = StyledButton.Theme.NormalBg
 								},
-								// Scrollable content
-								new BasicScrollContainer
+								new ChainedScrollContainer
 								{
 									RelativeSizeAxes = Axes.Both,
 									ClampExtension = 20,
@@ -132,7 +120,8 @@ public partial class SplitTabContainer : CompositeDrawable
 									{
 										RelativeSizeAxes = Axes.X,
 										AutoSizeAxes = Axes.Y,
-										Padding = new MarginPadding(10)
+										Masking = true,
+										Padding = new MarginPadding { Horizontal = 4, Top = 8, Bottom = 48 }
 									}
 								}
 							}
@@ -142,10 +131,8 @@ public partial class SplitTabContainer : CompositeDrawable
 			}
 		};
 
-		// Add all content containers (initially hidden)
 		foreach (var item in _items)
 		{
-			// Ensure the content respects relative X sizing
 			item.Content.RelativeSizeAxes = Axes.X;
 
 			var wrapper = new Container
@@ -158,10 +145,9 @@ public partial class SplitTabContainer : CompositeDrawable
 			_contentContainer.Add(wrapper);
 		}
 
-		// Show initial content
-		if (_contentContainer.Children.Count > 0) _contentContainer.Children[0].Alpha = 1;
+		if (_contentContainer.Children.Count > 0)
+			_contentContainer.Children[0].Alpha = 1;
 
-		// Position indicator after layout
 		Schedule(() => UpdateIndicator(false));
 	}
 
@@ -171,8 +157,8 @@ public partial class SplitTabContainer : CompositeDrawable
 
 		for (var i = 0; i < _items.Length; i++)
 		{
-			var index = i; // Capture for closure
-			var button = new SidebarButton(_items[i].Name, i == _selectedIndex, _accentColor, _inactiveColor)
+			var index = i;
+			var button = new SidebarButton(_items[i].Name, i == _selectedIndex)
 			{
 				RelativeSizeAxes = Axes.X,
 				Height = _buttonHeight
@@ -185,25 +171,19 @@ public partial class SplitTabContainer : CompositeDrawable
 		return buttons;
 	}
 
-	/// <summary>
-	/// Selects an item by index.
-	/// </summary>
 	public void SelectItem(int index)
 	{
 		if (index < 0 || index >= _items.Length || index == _selectedIndex)
 			return;
 
-		// Fade out current content
 		_contentContainer.Children[_selectedIndex].FadeOut(150, Easing.OutQuad);
 		_sidebarButtons[_selectedIndex].SetSelected(false);
 
 		_selectedIndex = index;
 
-		// Fade in new content
 		_contentContainer.Children[_selectedIndex].FadeIn(150, Easing.OutQuad);
 		_sidebarButtons[_selectedIndex].SetSelected(true);
 
-		// Animate indicator
 		UpdateIndicator(true);
 
 		SelectionChanged?.Invoke(_selectedIndex);
@@ -214,7 +194,7 @@ public partial class SplitTabContainer : CompositeDrawable
 		if (_sidebarButtons == null || _sidebarButtons.Length == 0)
 			return;
 
-		var targetY = 5 + _selectedIndex * _buttonHeight; // 5 is the top padding
+		var targetY = 5 + _selectedIndex * _buttonHeight;
 
 		if (animate)
 			_selectionIndicator.MoveTo(new Vector2(0, targetY), 200, Easing.OutQuad);
@@ -222,32 +202,22 @@ public partial class SplitTabContainer : CompositeDrawable
 			_selectionIndicator.Y = targetY;
 	}
 
-	/// <summary>
-	/// Gets the currently selected index.
-	/// </summary>
 	public int SelectedIndex => _selectedIndex;
 
-	/// <summary>
-	/// Sidebar navigation button.
-	/// </summary>
 	private partial class SidebarButton : CompositeDrawable
 	{
 		private readonly string _text;
 		private bool _isSelected;
-		private readonly Color4 _accentColor;
-		private readonly Color4 _inactiveColor;
 
 		private SpriteText _label = null!;
 		private Box _hoverOverlay = null!;
 
 		public event Action? Clicked;
 
-		public SidebarButton(string text, bool isSelected, Color4 accentColor, Color4 inactiveColor)
+		public SidebarButton(string text, bool isSelected)
 		{
 			_text = text;
 			_isSelected = isSelected;
-			_accentColor = accentColor;
-			_inactiveColor = inactiveColor;
 		}
 
 		[BackgroundDependencyLoader]
@@ -264,11 +234,13 @@ public partial class SplitTabContainer : CompositeDrawable
 				_label = new SpriteText
 				{
 					Text = _text,
-					Font = new FontUsage("", 17, _isSelected ? "Bold" : ""),
-					Colour = _isSelected ? _accentColor : _inactiveColor,
+					Font = new FontUsage("", 15, _isSelected ? "Bold" : ""),
+					Colour = _isSelected ? StyledButton.Theme.Accent : StyledButton.Theme.DisabledLabel,
 					Anchor = Anchor.CentreLeft,
 					Origin = Anchor.CentreLeft,
-					Padding = new MarginPadding { Left = 12 }
+					Padding = new MarginPadding { Left = 12 },
+					RelativeSizeAxes = Axes.X,
+					Truncate = true
 				}
 			};
 		}
@@ -276,8 +248,8 @@ public partial class SplitTabContainer : CompositeDrawable
 		public void SetSelected(bool selected)
 		{
 			_isSelected = selected;
-			_label.FadeColour(_isSelected ? _accentColor : _inactiveColor, 150);
-			_label.Font = new FontUsage("", 17, _isSelected ? "Bold" : "");
+			_label.FadeColour(_isSelected ? StyledButton.Theme.Accent : StyledButton.Theme.DisabledLabel, 150);
+			_label.Font = new FontUsage("", 15, _isSelected ? "Bold" : "");
 		}
 
 		protected override bool OnHover(HoverEvent e)
@@ -292,7 +264,7 @@ public partial class SplitTabContainer : CompositeDrawable
 		{
 			_hoverOverlay.FadeTo(0, 100);
 			if (!_isSelected)
-				_label.FadeColour(_inactiveColor, 100);
+				_label.FadeColour(StyledButton.Theme.DisabledLabel, 100);
 			base.OnHoverLost(e);
 		}
 
@@ -309,14 +281,8 @@ public partial class SplitTabContainer : CompositeDrawable
 /// </summary>
 public class SplitTabItem
 {
-	/// <summary>
-	/// The display name shown in the sidebar.
-	/// </summary>
 	public string Name { get; }
 
-	/// <summary>
-	/// The content to display when this item is selected.
-	/// </summary>
 	public Drawable Content { get; }
 
 	public SplitTabItem(string name, Drawable content)

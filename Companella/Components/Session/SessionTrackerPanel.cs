@@ -1,4 +1,5 @@
 using Companella.Components.Charts;
+using Companella.Components.Misc;
 using Companella.Models.Session;
 using Companella.Services.Session;
 using osu.Framework.Allocation;
@@ -22,7 +23,7 @@ public partial class SessionTrackerPanel : CompositeDrawable
 {
 	[Resolved] private SessionTrackerService TrackerService { get; set; } = null!;
 
-	private SessionToggleButton _toggleButton = null!;
+	private StyledButton _toggleButton = null!;
 	private SessionChart _sessionChart = null!;
 	private SpriteText _statsText = null!;
 	private SpriteText _durationText = null!;
@@ -66,7 +67,7 @@ public partial class SessionTrackerPanel : CompositeDrawable
 						Children = new Drawable[]
 						{
 							// Start/Stop button
-							_toggleButton = new SessionToggleButton
+							_toggleButton = new StyledButton("Start Session")
 							{
 								Size = new Vector2(120, 36),
 								TooltipText = "Track your plays and view progress over time"
@@ -170,7 +171,7 @@ public partial class SessionTrackerPanel : CompositeDrawable
 
 	private void UpdateButtonState()
 	{
-		_toggleButton.SetTracking(TrackerService.IsTracking);
+		_toggleButton.SetTrackingState(TrackerService.IsTracking);
 	}
 
 	private void UpdateStats()
@@ -194,83 +195,5 @@ public partial class SessionTrackerPanel : CompositeDrawable
 		}
 
 		base.Dispose(isDisposing);
-	}
-}
-
-/// <summary>
-/// Toggle button for starting/stopping session tracking.
-/// </summary>
-public partial class SessionToggleButton : CompositeDrawable, IHasTooltip
-{
-	private Box _background = null!;
-	private Box _hoverOverlay = null!;
-	private SpriteText _label = null!;
-	private bool _isTracking;
-
-	private readonly Color4 _startColor = new(100, 200, 100, 255);
-	private readonly Color4 _stopColor = new(200, 100, 100, 255);
-	private readonly Color4 _hoverTint = new(255, 255, 255, 40);
-
-	/// <summary>
-	/// Tooltip text displayed on hover.
-	/// </summary>
-	public LocalisableString TooltipText { get; set; }
-
-	public event Action? Clicked;
-
-	[BackgroundDependencyLoader]
-	private void load()
-	{
-		Masking = true;
-		CornerRadius = 6;
-
-		InternalChildren = new Drawable[]
-		{
-			_background = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = _startColor
-			},
-			_hoverOverlay = new Box
-			{
-				RelativeSizeAxes = Axes.Both,
-				Colour = Color4.White,
-				Alpha = 0
-			},
-			_label = new SpriteText
-			{
-				Text = "Start Session",
-				Font = new FontUsage("", 16, "Bold"),
-				Colour = Color4.White,
-				Anchor = Anchor.Centre,
-				Origin = Anchor.Centre
-			}
-		};
-	}
-
-	public void SetTracking(bool isTracking)
-	{
-		_isTracking = isTracking;
-		_background.FadeColour(_isTracking ? _stopColor : _startColor, 200);
-		_label.Text = _isTracking ? "Stop Session" : "Start Session";
-	}
-
-	protected override bool OnHover(HoverEvent e)
-	{
-		_hoverOverlay.FadeTo(0.15f, 100);
-		return base.OnHover(e);
-	}
-
-	protected override void OnHoverLost(HoverLostEvent e)
-	{
-		_hoverOverlay.FadeTo(0, 100);
-		base.OnHoverLost(e);
-	}
-
-	protected override bool OnClick(ClickEvent e)
-	{
-		_hoverOverlay.FadeTo(0.3f, 50).Then().FadeTo(0.15f, 100);
-		Clicked?.Invoke();
-		return true;
 	}
 }

@@ -1,35 +1,18 @@
 using Companella.Models.Beatmap;
+using Companella.Models.Training;
 using System.Globalization;
 
 namespace Companella.Models.Difficulty;
 
 /// <summary>
 /// Represents a map difficulty classification/level.
-/// Uses numeric labels 1-10, then Greek letters alpha through kappa.
+/// Uses numeric labels 1-10, then unicode greek letters.
 /// </summary>
 public class MapClassification
 {
 	/// <summary>
-	/// Greek letter names used for levels beyond 10.
-	/// Alpha (11) through Kappa (20) - kappa is the final/hardest level.
-	/// </summary>
-	private static readonly string[] _greekLetters =
-	{
-		"alpha", // 11
-		"beta", // 12
-		"gamma", // 13
-		"delta", // 14
-		"epsilon", // 15
-		"zeta", // 16
-		"eta", // 17
-		"theta", // 18
-		"iota", // 19
-		"kappa" // 20 - FINAL
-	};
-
-	/// <summary>
 	/// The difficulty level index (1-20).
-	/// 1-10 are numeric, 11-20 are Greek letters.
+	/// 1-10 are numeric, 11-20 are greek letters.
 	/// </summary>
 	public int LevelIndex { get; set; }
 
@@ -77,14 +60,7 @@ public class MapClassification
 	/// <returns>Level label string.</returns>
 	public static string GetLevelLabel(int levelIndex)
 	{
-		if (levelIndex < 1)
-			return "?";
-		if (levelIndex <= 10)
-			return levelIndex.ToString(CultureInfo.InvariantCulture);
-		if (levelIndex <= 20)
-			return _greekLetters[levelIndex - 11];
-		// Beyond kappa - return kappa (max level)
-		return _greekLetters[9]; // kappa
+		return DanLabelFormatter.GetLevelLabel(levelIndex);
 	}
 
 	/// <summary>
@@ -121,12 +97,18 @@ public class MapClassification
 		if (string.IsNullOrEmpty(label))
 			return 0;
 
-		// Try numeric first
-		if (int.TryParse(label, out var numericLevel)) return Math.Clamp(numericLevel, MinLevel, 10);
+		if (int.TryParse(label, out var numericLevel))
+			return Math.Clamp(numericLevel, 1, 10);
 
-		// Try Greek letter name (case-insensitive)
-		for (var i = 0; i < _greekLetters.Length; i++)
-			if (string.Equals(label, _greekLetters[i], StringComparison.OrdinalIgnoreCase))
+		var normalized = DanLabelFormatter.NormalizeLabel(label);
+		var greekLabels = new[]
+		{
+			"alpha", "beta", "gamma", "delta", "epsilon",
+			"zeta", "eta", "theta", "iota", "kappa"
+		};
+
+		for (var i = 0; i < greekLabels.Length; i++)
+			if (string.Equals(normalized, greekLabels[i], StringComparison.OrdinalIgnoreCase))
 				return i + 11;
 
 		return 0;

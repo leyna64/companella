@@ -18,13 +18,36 @@ public class SunnyDifficultyService
 		if (osuFile == null)
 			return -1.0;
 
-		// Determine mod type based on rate
-		var mod = "NM";
-		if (Math.Abs(rate - 1.5f) < 0.01f)
-			mod = "DT";
-		else if (Math.Abs(rate - 0.75f) < 0.01f)
-			mod = "HT";
+		var hitObjects = ParseHitObjects(osuFile);
+		if (hitObjects.Count == 0)
+			return -1.0;
 
+		return CalculateDifficulty(hitObjects, osuFile, rate);
+	}
+
+	/// <summary>
+	/// Calculates Sunny difficulty from pre-parsed hit objects.
+	/// </summary>
+	public static double CalculateDifficulty(List<HitObject> hitObjects, OsuFile osuFile, float rate = 1.0f)
+	{
+		if (hitObjects == null || hitObjects.Count == 0 || osuFile == null)
+			return -1.0;
+
+		var mod = GetModFromRate(rate);
+		return Calculate(hitObjects, (int)osuFile.CircleSize, osuFile.OverallDifficulty, mod);
+	}
+
+	private static string GetModFromRate(float rate)
+	{
+		if (Math.Abs(rate - 1.5f) < 0.01f)
+			return "DT";
+		if (Math.Abs(rate - 0.75f) < 0.01f)
+			return "HT";
+		return "NM";
+	}
+
+	private static List<HitObject> ParseHitObjects(OsuFile osuFile)
+	{
 		var hitObjects = new List<HitObject>();
 
 		if (osuFile.RawSections.TryGetValue("HitObjects", out var hitObjectLines))
@@ -41,7 +64,6 @@ public class SunnyDifficultyService
 		}
 		else
 		{
-			var parser = new OsuFileParser();
 			var fullOsuFile = OsuFileParser.Parse(osuFile.FilePath);
 
 			if (fullOsuFile.RawSections.TryGetValue("HitObjects", out hitObjectLines))
@@ -58,10 +80,7 @@ public class SunnyDifficultyService
 			}
 		}
 
-		if (hitObjects.Count == 0)
-			return -1.0;
-
-		return Calculate(hitObjects, (int)osuFile.CircleSize, osuFile.OverallDifficulty, mod);
+		return hitObjects;
 	}
 
 	private static double Calculate(List<HitObject> hitObjects, int keyCount, double od, string mod)

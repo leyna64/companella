@@ -1,3 +1,4 @@
+using Companella.Models.Application;
 using Companella.Models.Beatmap;
 using Companella.Models.Difficulty;
 using Companella.Models.Training;
@@ -15,7 +16,7 @@ using osuTK.Graphics;
 namespace Companella.Components.Analysis;
 
 /// <summary>
-/// Displays top 5 pattern types sorted by their pattern-specific MSD,
+/// Displays top 5 pattern types sorted by map coverage (%),
 /// plus the dan classification below (using YAVSRG difficulty).
 /// </summary>
 public partial class PatternDisplay : CompositeDrawable
@@ -28,6 +29,10 @@ public partial class PatternDisplay : CompositeDrawable
 	private SpriteText _classifierLabel = null!;
 	private SpriteText _classifierValue = null!;
 	private SpriteText _classifierDetail = null!;
+	private Container _lnClassifierContainer = null!;
+	private SpriteText _lnClassifierValue = null!;
+	private SpriteText _lnClassifierDetail = null!;
+	private FillFlowContainer _danLabelsContainer = null!;
 
 	private readonly Color4 _accentColor = new(255, 102, 170, 255);
 	private readonly Color4 _valueColor = new(230, 230, 230, 255);
@@ -40,6 +45,7 @@ public partial class PatternDisplay : CompositeDrawable
 	private float _currentRate = 1.0f;
 
 	[Resolved(canBeNull: true)] private DanConfigurationService? DanConfigService { get; set; }
+	[Resolved(canBeNull: true)] private UserSettingsService? UserSettingsService { get; set; }
 
 	// Pattern type colors (matching common rhythm game conventions)
 	private static readonly Dictionary<PatternType, Color4> _patternColors = new()
@@ -62,6 +68,61 @@ public partial class PatternDisplay : CompositeDrawable
 	[BackgroundDependencyLoader]
 	private void load()
 	{
+		_lnClassifierDetail = new SpriteText
+		{
+			Text = "",
+			Font = new FontUsage("", 17),
+			Colour = new Color4(120, 120, 120, 255),
+			Anchor = Anchor.CentreLeft,
+			Origin = Anchor.CentreLeft,
+			Alpha = 0
+		};
+		_lnClassifierValue = new SpriteText
+		{
+			Text = "?",
+			Font = new FontUsage("", 18, "Bold"),
+			Colour = new Color4(170, 220, 255, 255),
+			Anchor = Anchor.CentreLeft,
+			Origin = Anchor.CentreLeft
+		};
+
+		_classifierDetail = new SpriteText
+		{
+			Text = "",
+			Font = new FontUsage("", 17),
+			Colour = new Color4(120, 120, 120, 255),
+			Anchor = Anchor.CentreLeft,
+			Origin = Anchor.CentreLeft,
+			Alpha = 0
+		};
+		_classifierLabel = new SpriteText
+		{
+			Text = "Dan (BETA):",
+			Font = new FontUsage("", 16),
+			Colour = new Color4(140, 140, 140, 255),
+			Anchor = Anchor.CentreLeft,
+			Origin = Anchor.CentreLeft
+		};
+		_classifierValue = new SpriteText
+		{
+			Text = "?",
+			Font = new FontUsage("", 18, "Bold"),
+			Colour = _accentColor,
+			Anchor = Anchor.CentreLeft,
+			Origin = Anchor.CentreLeft
+		};
+
+		_lnClassifierContainer = CreateClassifierContainer(
+			"LN Dan:",
+			_lnClassifierValue,
+			_lnClassifierDetail);
+
+		_classifierContainer = CreateClassifierContainer(
+			"Dan (BETA):",
+			_classifierValue,
+			_classifierDetail,
+			_classifierLabel);
+
 		InternalChildren = new Drawable[]
 		{
 			// Title
@@ -103,64 +164,63 @@ public partial class PatternDisplay : CompositeDrawable
 				Padding = new MarginPadding { Top = 22 },
 				Alpha = 0
 			},
-			// Classifier display - anchored to bottom right
-			_classifierContainer = new Container
+			// Dan labels - anchored to bottom right
+			_danLabelsContainer = new FillFlowContainer
 			{
 				AutoSizeAxes = Axes.Both,
 				Anchor = Anchor.BottomRight,
 				Origin = Anchor.BottomRight,
-				Alpha = 0,
-				Child = new HoverableClassifierBox
+				Direction = FillDirection.Vertical,
+				Spacing = new Vector2(0, 4),
+				Children = new Drawable[]
 				{
-					AutoSizeAxes = Axes.Both,
-					Masking = true,
-					CornerRadius = 4,
-					Children = new Drawable[]
+					_lnClassifierContainer,
+					_classifierContainer
+				}
+			}
+		};
+	}
+
+	private static Container CreateClassifierContainer(
+		string labelText,
+		SpriteText valueText,
+		SpriteText detailText,
+		SpriteText? labelTextDrawable = null)
+	{
+		var label = labelTextDrawable ?? new SpriteText
+		{
+			Text = labelText,
+			Font = new FontUsage("", 16),
+			Colour = new Color4(140, 140, 140, 255),
+			Anchor = Anchor.CentreLeft,
+			Origin = Anchor.CentreLeft
+		};
+
+		return new Container
+		{
+			AutoSizeAxes = Axes.Both,
+			Alpha = 0,
+			Child = new HoverableClassifierBox
+			{
+				AutoSizeAxes = Axes.Both,
+				Masking = true,
+				CornerRadius = 4,
+				DetailText = detailText,
+				Children = new Drawable[]
+				{
+					new Box
 					{
-						// Background
-						new Box
-						{
-							RelativeSizeAxes = Axes.Both,
-							Colour = new Color4(45, 42, 55, 255)
-						},
-						// Content
-						new FillFlowContainer
-						{
-							AutoSizeAxes = Axes.Both,
-							Direction = FillDirection.Horizontal,
-							Padding = new MarginPadding { Horizontal = 8, Vertical = 5 },
-							Spacing = new Vector2(6, 0),
-							Children = new Drawable[]
-							{
-								_classifierLabel = new SpriteText
-								{
-									Text = "Dan (BETA):",
-									Font = new FontUsage("", 16),
-									Colour = new Color4(140, 140, 140, 255),
-									Anchor = Anchor.CentreLeft,
-									Origin = Anchor.CentreLeft
-								},
-								_classifierValue = new SpriteText
-								{
-									Text = "?",
-									Font = new FontUsage("", 18, "Bold"),
-									Colour = _accentColor,
-									Anchor = Anchor.CentreLeft,
-									Origin = Anchor.CentreLeft
-								},
-								_classifierDetail = new SpriteText
-								{
-									Text = "",
-									Font = new FontUsage("", 17),
-									Colour = new Color4(120, 120, 120, 255),
-									Anchor = Anchor.CentreLeft,
-									Origin = Anchor.CentreLeft,
-									Alpha = 0 // Hidden by default, shown on hover
-								}
-							}
-						}
+						RelativeSizeAxes = Axes.Both,
+						Colour = new Color4(45, 42, 55, 255)
 					},
-					DetailText = _classifierDetail
+					new FillFlowContainer
+					{
+						AutoSizeAxes = Axes.Both,
+						Direction = FillDirection.Horizontal,
+						Padding = new MarginPadding { Horizontal = 8, Vertical = 5 },
+						Spacing = new Vector2(6, 0),
+						Children = new Drawable[] { label, valueText, detailText }
+					}
 				}
 			}
 		};
@@ -175,6 +235,8 @@ public partial class PatternDisplay : CompositeDrawable
 		_errorText.FadeTo(0, 100);
 		_rowsContainer.FadeTo(0, 100);
 		_classifierContainer.FadeTo(0, 100);
+		_lnClassifierContainer.FadeTo(0, 100);
+		_titleText.FadeTo(0, 100);
 	}
 
 	/// <summary>
@@ -187,6 +249,7 @@ public partial class PatternDisplay : CompositeDrawable
 		_errorText.FadeTo(1, 100);
 		_rowsContainer.FadeTo(0, 100);
 		_classifierContainer.FadeTo(0, 100);
+		_lnClassifierContainer.FadeTo(0, 100);
 	}
 
 	/// <summary>
@@ -198,8 +261,10 @@ public partial class PatternDisplay : CompositeDrawable
 		_errorText.FadeTo(0, 100);
 		_rowsContainer.FadeTo(0, 100);
 		_classifierContainer.FadeTo(0, 100);
+		_lnClassifierContainer.FadeTo(0, 100);
 		_rowsContainer.Clear();
 		_titleText.Text = "";
+		_titleText.Alpha = 0;
 		_currentPatternResult = null;
 		_currentTopPatterns = null;
 		_pendingMsdScores = null;
@@ -207,12 +272,13 @@ public partial class PatternDisplay : CompositeDrawable
 		_currentRate = 1.0f;
 		_classifierValue.Text = "?";
 		_classifierDetail.Text = "";
+		_lnClassifierValue.Text = "?";
+		_lnClassifierDetail.Text = "";
 	}
 
 	/// <summary>
 	/// Sets the pattern analysis result to display.
-	/// If MSD scores are already available, shows top 5 patterns sorted by MSD.
-	/// Otherwise shows patterns by percentage until MSD arrives.
+	/// Patterns are sorted by map coverage (%).
 	/// </summary>
 	public void SetPatternResult(PatternAnalysisResult result, OsuFile osuFile)
 	{
@@ -228,77 +294,45 @@ public partial class PatternDisplay : CompositeDrawable
 
 		_currentPatternResult = result;
 		_currentOsuFile = osuFile;
+		UpdateCategoryTitle();
+		DisplayPatterns(result);
+		TriggerLnClassification();
 
-		// Check if MSD is already available (handles race condition)
 		if (_pendingMsdScores != null)
-		{
-			// MSD arrived before patterns, sort by MSD now
-			DisplayPatternsSortedByMsd(result, _pendingMsdScores);
-			// Trigger classification now that both patterns and MSD are ready
 			TriggerClassification();
-			_pendingMsdScores = null;
-		}
-		else
-		{
-			// No MSD yet, show patterns sorted by percentage temporarily
-			// Exclude Jump, Quad, and Hand patterns
-			var topPatterns = result.GetTopPatterns()
-				.Where(p => p.Type != PatternType.Jump && p.Type != PatternType.Quad && p.Type != PatternType.Hand)
-				.Take(5)
-				.ToList();
-			_currentTopPatterns = topPatterns;
-
-			if (topPatterns.Count == 0)
-			{
-				_titleText.Text = "";
-				_rowsContainer.FadeTo(1, 200);
-				return;
-			}
-
-			_titleText.Text = "";
-
-			// Add top pattern rows (max 5, sorted by percentage for now)
-			foreach (var pattern in topPatterns)
-			{
-				var color = _patternColors.GetValueOrDefault(pattern.Type, _valueColor);
-				_rowsContainer.Add(new TopPatternRow(pattern, color, null, null));
-			}
-
-			_rowsContainer.FadeTo(1, 200);
-
-			// Don't classify yet - wait for MSD scores to arrive for accurate pattern ranking
-			// Classification will be triggered when SetMsdScores is called
-		}
 	}
 
 	/// <summary>
-	/// Sets the MSD scores and triggers re-sorting of patterns.
-	/// Call this after MSD analysis completes.
-	/// Handles race condition: if patterns aren't ready yet, stores scores for later.
+	/// Stores MSD scores for dan classification. Does not affect pattern sort order.
 	/// </summary>
 	/// <param name="scores">MSD skillset scores.</param>
 	/// <param name="rate">Rate multiplier (1.0 = normal, 1.5 = DT, 0.75 = HT).</param>
 	public void SetMsdScores(SkillsetScores scores, float rate = 1.0f)
 	{
-		// Always store the scores and rate for classification
 		_pendingMsdScores = scores;
 		_currentRate = rate;
+		UpdateCategoryTitle();
 
 		if (_currentPatternResult == null)
-			// Patterns haven't arrived yet, scores stored for when they do
 			return;
 
-		// Both are ready - re-sort patterns by MSD
-		_rowsContainer.Clear();
-		DisplayPatternsSortedByMsd(_currentPatternResult, scores);
-
-		// Trigger classification now that patterns are sorted by MSD
 		TriggerClassification();
+		TriggerLnClassification();
+	}
+
+	/// <summary>
+	/// Re-runs LN dan classification when the music rate changes.
+	/// </summary>
+	public void RefreshLnDan(OsuFile osuFile, float rate)
+	{
+		_currentOsuFile = osuFile;
+		_currentRate = rate;
+		UpdateCategoryTitle();
+		TriggerLnClassification();
 	}
 
 	/// <summary>
 	/// Triggers classification using the current top patterns and OsuFile.
-	/// Only classifies if both are available and MSD-sorted patterns exist.
 	/// </summary>
 	private void TriggerClassification()
 	{
@@ -330,7 +364,9 @@ public partial class PatternDisplay : CompositeDrawable
 					return;
 				}
 
-				var result = DanConfigService.ClassifyMap(msdScores, osuFile, rate);
+				var calculatorMode = UserSettingsService?.Settings.RiceDanCalculator
+					?? RiceDanCalculatorMode.CompanellaOnnx;
+				var result = DanConfigService.ClassifyMap(msdScores, osuFile, rate, calculatorMode);
 
 				Schedule(() => { UpdateClassificationDisplay(result); });
 			}
@@ -346,47 +382,110 @@ public partial class PatternDisplay : CompositeDrawable
 		});
 	}
 
-	/// <summary>
-	/// Displays patterns sorted by their pattern-specific MSD (highest first).
-	/// </summary>
-	private void DisplayPatternsSortedByMsd(PatternAnalysisResult result, SkillsetScores scores)
+	private void TriggerLnClassification()
 	{
-		// Get all patterns from the result, excluding Jump, Quad, and Hand
-		var allPatterns = result.GetAllPatternsSorted()
+		if (_currentOsuFile == null || _currentOsuFile.Mode != 3)
+		{
+			_lnClassifierContainer.FadeTo(0, 100);
+			return;
+		}
+
+		var osuFile = _currentOsuFile;
+		var rate = _currentRate;
+
+		_lnClassifierValue.Text = "...";
+		_lnClassifierDetail.Text = "Calculating...";
+		_lnClassifierContainer.FadeTo(1, 200);
+
+		Task.Run(() =>
+		{
+			try
+			{
+				var ratings = PureLnDifficultyService.Calculate(osuFile, rate);
+
+				Schedule(() =>
+				{
+					if (_currentOsuFile?.FilePath != osuFile.FilePath)
+						return;
+
+					UpdateLnClassificationDisplay(ratings);
+				});
+			}
+			catch (Exception ex)
+			{
+				Logger.Info($"[PatternDisplay] LN dan classification failed: {ex.Message}");
+				Schedule(() =>
+				{
+					_lnClassifierValue.Text = "?";
+					_lnClassifierDetail.Text = "Error";
+					_lnClassifierContainer.FadeTo(1, 200);
+				});
+			}
+		});
+	}
+
+	private void UpdateLnClassificationDisplay(PureLnDifficultyRatings ratings)
+	{
+		if (!ratings.HasLnDanEstimate)
+		{
+			_lnClassifierContainer.FadeTo(0, 100);
+			return;
+		}
+
+		_lnClassifierValue.Text = ratings.EstimatedLnDanDisplayName
+			?? ratings.EstimatedLnDanName
+			?? "?";
+
+		var details = new List<string>();
+		if (ratings.EstimatedLnDanRaw.HasValue)
+			details.Add($"Raw: {ratings.EstimatedLnDanRaw.Value:F2}");
+		if (ratings.LnDifficulty.HasValue)
+			details.Add($"LN Diff: {ratings.LnDifficulty.Value:F2}");
+
+		_lnClassifierDetail.Text = string.Join(" | ", details);
+		_lnClassifierContainer.FadeTo(1, 200);
+	}
+
+	/// <summary>
+	/// Displays the top 5 patterns sorted by map coverage (%).
+	/// </summary>
+	private void DisplayPatterns(PatternAnalysisResult result)
+	{
+		var topPatterns = result.GetTopPatterns()
 			.Where(p => p.Type != PatternType.Jump && p.Type != PatternType.Quad && p.Type != PatternType.Hand)
+			.Take(5)
 			.ToList();
 
-		if (allPatterns.Count == 0)
+		_currentTopPatterns = topPatterns;
+
+		if (topPatterns.Count == 0)
 		{
-			_titleText.Text = "";
 			_rowsContainer.FadeTo(1, 200);
 			return;
 		}
 
-		// Sort patterns by their pattern-specific MSD (highest first)
-		var patternsByMsd = allPatterns
-			.Select(p => new
-			{
-				Pattern = p,
-				Msd = PatternToMsdMapper.GetMsdForPattern(p.Type, scores),
-				MsdName = PatternToMsdMapper.GetMsdNameForPattern(p.Type)
-			})
-			.Where(p => p.Msd > 0) // Only show patterns with MSD > 0
-			.OrderByDescending(p => p.Msd)
-			.Take(5)
-			.ToList();
-
-		_currentTopPatterns = patternsByMsd.Select(p => p.Pattern).ToList();
-		_titleText.Text = "";
-
-		// Add top pattern rows sorted by MSD
-		foreach (var item in patternsByMsd)
+		// Rescale the visible rows so their percentages sum to 100%.
+		var visibleTotal = topPatterns.Sum(p => p.Percentage);
+		if (visibleTotal > 0)
 		{
-			var color = _patternColors.GetValueOrDefault(item.Pattern.Type, _valueColor);
-			_rowsContainer.Add(new TopPatternRow(item.Pattern, color, item.Msd, item.MsdName));
+			foreach (var pattern in topPatterns)
+				pattern.Percentage = pattern.Percentage / visibleTotal * 100.0;
+		}
+
+		foreach (var pattern in topPatterns)
+		{
+			var color = _patternColors.GetValueOrDefault(pattern.Type, _valueColor);
+			_rowsContainer.Add(new TopPatternRow(pattern, color));
 		}
 
 		_rowsContainer.FadeTo(1, 200);
+	}
+
+	private void UpdateCategoryTitle()
+	{
+		var title = _currentPatternResult?.GetInterludeCategoryDisplay(_currentRate);
+		_titleText.Text = title ?? string.Empty;
+		_titleText.Alpha = string.IsNullOrEmpty(title) ? 0 : 1;
 	}
 
 	/// <summary>
@@ -402,6 +501,8 @@ public partial class PatternDisplay : CompositeDrawable
 
 		// Show raw model output if available (from ONNX model)
 		if (result.RawModelOutput.HasValue) details.Add($"Raw: {result.RawModelOutput.Value:F2}");
+		if (result.UsedDanielCalculator && result.DanielStarRating.HasValue)
+			details.Add($"SR: {result.DanielStarRating.Value:F2}");
 
 		_classifierDetail.Text = string.Join(" | ", details);
 
@@ -414,24 +515,16 @@ public partial class PatternDisplay : CompositeDrawable
 	}
 
 	/// <summary>
-	/// A compact row showing pattern type, BPM, and MSD (or percentage if no MSD).
-	/// Format: "[color] Type @ BPM  MSD XX.X" or "[color] Type @ BPM  XX%"
+	/// A compact row showing pattern type, BPM, and map coverage (%).
 	/// </summary>
 	private partial class TopPatternRow : CompositeDrawable
 	{
-		public TopPatternRow(TopPattern pattern, Color4 color, double? msd = null, string? msdName = null)
+		public TopPatternRow(TopPattern pattern, Color4 color)
 		{
 			RelativeSizeAxes = Axes.X;
 			Height = 18;
 
 			var secondaryColor = new Color4(160, 160, 160, 255);
-
-			// Display MSD if available, otherwise percentage
-			string rightText;
-			if (msd.HasValue && msd.Value > 0)
-				rightText = msdName != null ? $"{msdName} {msd:F1}" : $"MSD {msd:F1}";
-			else
-				rightText = pattern.PercentageDisplay;
 
 			InternalChildren = new Drawable[]
 			{
@@ -477,10 +570,12 @@ public partial class PatternDisplay : CompositeDrawable
 											Colour = color
 										}
 									},
-									// Pattern name
+									// Pattern name (Interlude-style when available)
 									new SpriteText
 									{
-										Text = pattern.ShortName,
+										Text = pattern.Mixed
+											? $"~{pattern.ShortName}"
+											: pattern.ShortName,
 										Font = new FontUsage("", 16),
 										Colour = color,
 										Anchor = Anchor.CentreLeft,
@@ -489,7 +584,7 @@ public partial class PatternDisplay : CompositeDrawable
 									// @ BPM (if has BPM)
 									new SpriteText
 									{
-										Text = pattern.Bpm > 0 ? $"@ {pattern.Bpm:F0}" : "",
+										Text = pattern.Bpm > 0 ? $"{pattern.Bpm:F0} BPM" : "",
 										Font = new FontUsage("", 15),
 										Colour = new Color4(200, 200, 200, 255),
 										Anchor = Anchor.CentreLeft,
@@ -497,10 +592,10 @@ public partial class PatternDisplay : CompositeDrawable
 									}
 								}
 							},
-							// Right: MSD or Percentage
+							// Right: map coverage
 							new SpriteText
 							{
-								Text = rightText,
+								Text = pattern.PercentageDisplay,
 								Font = new FontUsage("", 15),
 								Colour = secondaryColor,
 								Anchor = Anchor.CentreRight,

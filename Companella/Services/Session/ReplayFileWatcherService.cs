@@ -16,6 +16,9 @@ public class ReplayFileWatcherService : IDisposable
 	private readonly OsuProcessDetector _processDetector;
 	private readonly SessionDatabaseService _databaseService;
 	private readonly ScoreImportService _scoreImportService;
+	private readonly SessionTrackerService? _tracker;
+	private readonly object _matchingLock = new();
+	private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _pendingFiles = new();
 	private readonly List<FileSystemWatcher> _watchers = new();
 	private readonly object _lockObj = new();
 	private bool _isDisposed;
@@ -45,19 +48,28 @@ public class ReplayFileWatcherService : IDisposable
 	/// Creates a new ReplayFileWatcherService.
 	/// </summary>
 	public ReplayFileWatcherService(OsuProcessDetector processDetector, SessionDatabaseService databaseService,
-		ScoreImportService scoreImportService)
+		ScoreImportService scoreImportService, SessionTrackerService? tracker = null)
 	{
 		_processDetector = processDetector;
 		_databaseService = databaseService;
 		_scoreImportService = scoreImportService;
+		_tracker = tracker;
+		if (_tracker != null)
+		{
+			_tracker.PlayRecorded += OnPlayRecorded;
+			_tracker.SessionStopped += OnSessionStopped;
+		}
 	}
+
+	private void OnPlayRecorded(object? sender, SessionPlayResult play) => Task.Run(CheckForMissingReplays);
+	private void OnSessionStopped(object? sender, EventArgs e) => Task.Run(CheckForMissingReplays);
 
 	/// <summary>
 	/// Starts watching the osu! replay folders.
 	/// </summary>
 	public void StartWatching()
 	{
-		if (_isWatching)
+		if (_isWatching || _isDisposed)
 			return;
 
 		var osuDir = _processDetector.GetOsuDirectory();
@@ -141,6 +153,11 @@ public class ReplayFileWatcherService : IDisposable
 	{
 		if (_isDisposed || !_isWatching)
 			return;
+		foreach (var pending in _pendingFiles.ToArray())
+		{
+			if (pending.Value >= 10) _pendingFiles.TryRemove(pending.Key, out _);
+			else ProcessReplayFile(pending.Key);
+		}
 
 		foreach (var folder in _watchedFolders)
 			try
@@ -335,130 +352,32 @@ public class ReplayFileWatcherService : IDisposable
 	/// </summary>
 	private void ProcessReplayFile(string replayPath)
 	{
-		try
+		lock (_matchingLock)
 		{
-			// Wait a moment for the file to be fully written
-			Thread.Sleep(500);
-
-			if (!File.Exists(replayPath))
-			{
-				Logger.Info($"[ReplayWatcher] Replay file no longer exists: {replayPath}");
-				return;
-			}
-
-			Logger.Info($"[ReplayWatcher] Processing replay: {Path.GetFileName(replayPath)}");
-
-			// Extract beatmap hash and timestamp from replay filename (format: {BeatmapHash}-{Timestamp}.osr)
-			var fileName = Path.GetFileNameWithoutExtension(replayPath);
-			var parts = fileName.Split('-');
-
-			string? beatmapHash = null;
-			long replayTimestamp = 0;
-
-			if (parts.Length >= 2)
-			{
-				// First part is the beatmap hash
-				beatmapHash = parts[0].ToLowerInvariant();
-				Logger.Info($"[ReplayWatcher] Extracted beatmap hash from filename: {beatmapHash}");
-
-				// Second part is the timestamp (Windows FILETIME ticks)
-				if (parts.Length >= 2 && long.TryParse(parts[1], out replayTimestamp))
-					try
-					{
-						var replayTime = DateTime.FromFileTime(replayTimestamp);
-						Logger.Info($"[ReplayWatcher] Extracted replay timestamp: {replayTime:yyyy-MM-dd HH:mm:ss}");
-					}
-					catch
-					{
-						replayTimestamp = 0;
-					}
-			}
-
-			// Calculate the replay file's hash
-			string replayHash;
 			try
 			{
-				using var stream = File.OpenRead(replayPath);
-				replayHash = stream.Md5();
-			}
-			catch (IOException)
-			{
-				// File might still be in use, try again later
-				Logger.Info("[ReplayWatcher] File still in use, will retry later");
-				return;
-			}
-
-			Logger.Info($"[ReplayWatcher] Replay hash: {replayHash}");
-
-			// Find matching plays in the database
-			if (!string.IsNullOrEmpty(beatmapHash))
-			{
-				var matchingPlays = _databaseService.GetPlaysWithoutReplayByBeatmapHash(beatmapHash);
-
-				if (matchingPlays.Count > 0)
+				using var stream = new FileStream(replayPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+				if (stream.Length is <= 0 or > 26214400) return;
+				var bytes = new byte[(int)stream.Length];
+				stream.ReadExactly(bytes);
+				var replay = Companella.Services.Integrations.ManiaTracker.ManiaTrackerReplay.Read(bytes);
+				var replayHash = Convert.ToHexString(System.Security.Cryptography.MD5.HashData(bytes));
+				_tracker?.AttachReplay(replay, replayPath, replayHash);
+				var matches = _databaseService.GetPlaysWithoutReplayByBeatmapHash(replay.BeatmapHash)
+					.Where(p => p.Status == PlayStatus.Completed && SessionReplayMatcher.Matches(p.BeatmapHash, p.RecordedAt, replay)).ToArray();
+				if (matches.Length == 1)
 				{
-					StoredSessionPlay? bestMatch = null;
-
-					if (replayTimestamp > 0 && matchingPlays.Count > 1)
-					{
-						// We have a timestamp - find the play closest to the replay time
-						var replayTime = DateTime.FromFileTime(replayTimestamp);
-						var smallestDiff = long.MaxValue;
-
-						foreach (var play in matchingPlays)
-						{
-							var diff = Math.Abs((play.RecordedAt - replayTime).Ticks);
-							if (diff < smallestDiff)
-							{
-								smallestDiff = diff;
-								bestMatch = play;
-							}
-						}
-
-						if (bestMatch != null)
-						{
-							var matchDiff = TimeSpan.FromTicks(smallestDiff);
-							Logger.Info($"[ReplayWatcher] Matched by timestamp, diff: {matchDiff.TotalSeconds:F1}s");
-						}
-					}
-					else
-					{
-						// No timestamp or only one match - take the oldest without replay
-						// (first play without replay should get the first replay)
-						bestMatch = matchingPlays[matchingPlays.Count - 1];
-						Logger.Info($"[ReplayWatcher] No timestamp, using oldest unmatched play");
-					}
-
-					if (bestMatch != null)
-						// Update the database with the replay info
-						if (_databaseService.UpdateReplayInfo(bestMatch.Id, replayHash, replayPath))
-						{
-							Logger.Info(
-								$"[ReplayWatcher] Matched replay to play ID {bestMatch.Id} (recorded {bestMatch.RecordedAt:HH:mm:ss})");
-
-							// Raise event
-							ReplayMatched?.Invoke(this,
-								new ReplayMatchedEventArgs(bestMatch.Id, replayPath, replayHash));
-						}
+					var counts = replay.Judgements;
+					var accuracy = SessionPlayMemoryHelper.ComputeManiaAccuracy(counts[3], counts[0], counts[4], counts[1], counts[2], counts[5]);
+					if (_databaseService.UpdateReplayInfo(matches[0].Id, replayHash, replayPath, accuracy, counts[5]))
+						ReplayMatched?.Invoke(this, new ReplayMatchedEventArgs(matches[0].Id, replayPath, replayHash));
 				}
-				else
-				{
-					Logger.Info($"[ReplayWatcher] No matching plays found for beatmap hash: {beatmapHash}");
-				}
+				_pendingFiles.TryRemove(replayPath, out _);
 			}
-			else
+			catch (Exception ex) when (ex is IOException or ArgumentException or OverflowException)
 			{
-				// Fallback: check recent plays without replay
-				var recentPlays = _databaseService.GetRecentPlaysWithoutReplay(60);
-				Logger.Info($"[ReplayWatcher] Checking {recentPlays.Count} recent plays without replay");
-
-				// For now, we can't match without a beatmap hash from the filename
-				// A more sophisticated approach would parse the replay file
+				_pendingFiles.AddOrUpdate(replayPath, 1, (_, attempts) => attempts + 1);
 			}
-		}
-		catch (Exception ex)
-		{
-			Logger.Info($"[ReplayWatcher] Error processing replay: {ex.Message}");
 		}
 	}
 
@@ -468,9 +387,15 @@ public class ReplayFileWatcherService : IDisposable
 	/// </summary>
 	public void CheckForMissingReplays()
 	{
+		if (_isDisposed) return;
 		var osuDir = _processDetector.GetOsuDirectory();
 		if (string.IsNullOrEmpty(osuDir))
 			return;
+		foreach (var play in _tracker?.Plays.Where(p => !p.HasReplay && p.Status == PlayStatus.Completed) ?? Enumerable.Empty<SessionPlayResult>())
+		{
+			var path = SessionReplayMatcher.Find(osuDir, play.BeatmapHash, play.RecordedAt);
+			if (path != null) ProcessReplayFile(path);
+		}
 
 		var recentPlays = _databaseService.GetRecentPlaysWithoutReplay(60);
 		if (recentPlays.Count == 0)
@@ -668,9 +593,14 @@ public class ReplayFileWatcherService : IDisposable
 
 	private void Dispose(bool isDisposing)
 	{
-		if (!_isDisposed || !isDisposing)
+		if (_isDisposed || !isDisposing)
 			return;
 
+		if (_tracker != null)
+		{
+			_tracker.PlayRecorded -= OnPlayRecorded;
+			_tracker.SessionStopped -= OnSessionStopped;
+		}
 		StopWatching();
 		_isDisposed = true;
 	}
