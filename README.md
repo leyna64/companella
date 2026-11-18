@@ -329,18 +329,15 @@ Companella keeps itself up to date automatically.
 
 ## Linux (osu-winello)
 
-Companella! runs inside [osu-winello](https://github.com/NelloKudo/osu-winello)'s Wine prefix. One-time setup:
+Companella! runs inside [osu-winello](https://github.com/NelloKudo/osu-winello)'s Wine prefix. Install osu-winello first, close osu!, then paste this into a terminal:
 
 ```bash
-osu-wine --wine ~/Downloads/CompanellaSetup.exe
-osu-wine --wine ~/.local/share/wineprefixes/osu-wineprefix/drive_c/users/"$USER"/AppData/Local/Companella/'Companella!.exe' --osu-winello
+curl -fsSL https://raw.githubusercontent.com/leyna64/companella/live/scripts/osu-winello-install.sh | bash
 ```
 
-After that, start **Companella! (osu-winello)** from your app menu (or run `bash ~/.local/share/companella/osu-winello.sh`). It checks for Companella! updates, starts osu! through `osu-wine` if it is not running, then opens Companella! next to it.
+Then open **Companella! (osu-winello)** from your app menu. It checks for Companella! updates, starts osu! if it is not running, then opens Companella! next to it.
 
-Known limitations:
-- With tosu/gosumemory enabled in osu-winello, closing osu! also closes Companella!.
-- The tray icon and splash logo are missing (GDI+ does not load in the osu-winello prefix).
+Known limitation: with tosu/gosumemory enabled in osu-winello, closing osu! also closes Companella!.
 
 ---
 

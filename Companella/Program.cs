@@ -93,6 +93,12 @@ public static class Program
 		tools.CreateShortcutForThisExe(ShortcutLocation.StartMenu | ShortcutLocation.Desktop);
 
 		Logger.Info("[Squirrel] Shortcuts created");
+
+		// osu-wine exports both; they are unset on Windows, so this only runs when installed through osu-winello
+		if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("XDG_DATA_HOME")) && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("BINDIR")))
+		{
+			OsuWinelloSetup.Run();
+		}
 	}
 
 	/// <summary>
