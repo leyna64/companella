@@ -14,7 +14,7 @@ namespace Companella.Services.Common;
 /// </summary>
 public class SquirrelUpdaterService : IDisposable
 {
-	private const string _updateUrl = "https://updates.erdbee.re/companella";
+	internal const string UpdateUrl = "https://updates.erdbee.re/companella";
 	private const string _gitHubRepoUrl = "https://github.com/Leinadix/companella"; // For release notes only
 	private const string _versionFileName = "version.txt";
 	private const string _failedUpdatesFileName = "failed_updates.txt";
@@ -164,9 +164,9 @@ public class SquirrelUpdaterService : IDisposable
 
 		try
 		{
-			Logger.Info($"[SquirrelUpdater] Checking for updates from: {_updateUrl}");
+			Logger.Info($"[SquirrelUpdater] Checking for updates from: {UpdateUrl}");
 
-			using var updateManager = new UpdateManager(_updateUrl);
+			using var updateManager = new UpdateManager(UpdateUrl);
 
 			var updateInfo = await updateManager.CheckForUpdate();
 
@@ -283,7 +283,7 @@ public class SquirrelUpdaterService : IDisposable
 
 			ReportProgress(progress, 0, $"Preparing {updateType} update...");
 
-			using var updateManager = new UpdateManager(_updateUrl);
+			using var updateManager = new UpdateManager(UpdateUrl);
 
 			// Check for updates again to get the release entries
 			// ignoreDeltaUpdates forces full package downloads when true

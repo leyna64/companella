@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Companella.Services.Common;
+using Companella.Services.Platform;
 using osu.Framework;
 using osu.Framework.Platform;
 using Squirrel;
@@ -24,6 +25,11 @@ public static class Program
 			OnAppUpdate,
 			onAppUninstall: OnAppUninstall
 		);
+
+		if (args.Contains(OsuWinelloSetup.Flag, StringComparer.OrdinalIgnoreCase))
+		{
+			Environment.Exit(OsuWinelloSetup.Run());
+		}
 
 		// Show splash screen immediately on a separate thread
 		ShowSplashScreen();
