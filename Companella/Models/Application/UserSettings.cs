@@ -222,4 +222,11 @@ public class UserSettings
 	/// </summary>
 	[JsonPropertyName("hasSeenDifficultySplitterIntro")]
 	public bool HasSeenDifficultySplitterIntro { get; set; }
+
+	/// <summary>
+	/// Whether Companella! runs next to osu! in an osu-winello Wine prefix on Linux.
+	/// Set once by the --osu-winello flag (see <see cref="Services.Platform.OsuWinelloSetup"/>).
+	/// </summary>
+	[JsonPropertyName("osuWinello")]
+	public bool OsuWinello { get; set; }
 }
