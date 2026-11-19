@@ -799,6 +799,7 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 			_offsetPanel.SetEnabled(true);
 			_rateChangerPanel.SetEnabled(true);
 			_modSelectionPanel.SetEnabled(true);
+			_modSelectionPanel.SetCurrentBeatmap(_currentOsuFile);
 			_bulkRateChangerPanel.SetEnabled(true);
 			_marathonCreatorPanel.SetCurrentBeatmap(_currentOsuFile);
 			_marathonCreatorPanel.SetEnabled(true);
@@ -825,6 +826,7 @@ public partial class MainScreen : osu.Framework.Screens.Screen
 			_offsetPanel.SetEnabled(false);
 			_rateChangerPanel.SetEnabled(false);
 			_modSelectionPanel.SetEnabled(false);
+			_modSelectionPanel.SetCurrentBeatmap(null);
 			_bulkRateChangerPanel.SetEnabled(false);
 			_marathonCreatorPanel.SetCurrentBeatmap(null);
 			_marathonCreatorPanel.SetEnabled(false);
