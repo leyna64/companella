@@ -1683,7 +1683,8 @@ public partial class CompanellaGame : Game
 						}
 
 						// Perform one-time restart after first connection for proper attachment
-						if (!_hasPerformedStartupRestart)
+						// (skipped under osu-winello: killing osu! ends its Wine session, which also closes Companella!)
+						if (!_hasPerformedStartupRestart && !_userSettingsService.Settings.OsuWinello)
 						{
 							PerformFirstConnectionRestart();
 							return; // Exit early, we'll re-detect after restart
