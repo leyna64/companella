@@ -1,6 +1,7 @@
 using Companella.Components.Layout;
 using Companella.Components.Misc;
 using Companella.Components.Settings;
+using Companella.Models.Beatmap;
 using Companella.Mods;
 using Companella.Services.Tools;
 using osu.Framework.Allocation;
@@ -34,8 +35,9 @@ public partial class ModSelectionPanel : CompositeDrawable
 
 	private IMod? _selectedMod;
 	private StyledButton? _selectedButton;
+	private OsuFile? _currentBeatmap;
 	private bool _enabled;
-	private readonly List<ParameterSlider> _parameterSliders = new();
+	private List<ParameterSlider> _parameterSliders = new();
 
 	private readonly Color4 _accentColor = new(255, 102, 170, 255);
 	private readonly Color4 _categoryHeaderColor = new(180, 180, 180, 255);
@@ -238,6 +240,12 @@ public partial class ModSelectionPanel : CompositeDrawable
 		_parametersContainer.Clear();
 		_parameterSliders.Clear();
 
+		if (mod is LaneSwapMod laneSwap)
+		{
+			AddLaneOrderEditor(laneSwap);
+			return;
+		}
+
 		if (mod.Parameters.Count == 0)
 			return;
 
@@ -249,12 +257,61 @@ public partial class ModSelectionPanel : CompositeDrawable
 		}
 	}
 
+	/// <summary>
+	/// Shows the draggable lane order field for the loaded mania beatmap
+	/// </summary>
+	private void AddLaneOrderEditor(LaneSwapMod mod)
+	{
+		if (_currentBeatmap == null)
+		{
+			_parametersContainer.Add(SettingsLayout.CreateHint("Load a beatmap in osu! to arrange its lanes."));
+			return;
+		}
+
+		if (_currentBeatmap.Mode != 3)
+		{
+			_parametersContainer.Add(SettingsLayout.CreateHint("Lane swapping only works on mania beatmaps!"));
+			return;
+		}
+
+		var keyCount = (int)_currentBeatmap.CircleSize;
+
+		if (keyCount < LaneSwapMod.MinKeyCount)
+		{
+			_parametersContainer.Add(SettingsLayout.CreateHint(
+				$"Lane Swap needs at least {LaneSwapMod.MinKeyCount} keys."));
+			return;
+		}
+
+		if (keyCount > LaneSwapMod.MaxKeyCount)
+		{
+			_parametersContainer.Add(SettingsLayout.CreateHint(
+				$"Lane Swap supports up to {LaneSwapMod.MaxKeyCount} keys."));
+			return;
+		}
+
+		_parametersContainer.Add(new LaneOrderField(mod, keyCount, _accentColor));
+	}
+
 	private void OnApplyClicked()
 	{
 		if (_selectedMod == null || !_enabled)
 			return;
 
 		ApplyModClicked?.Invoke(_selectedMod);
+	}
+
+	/// <summary>
+	/// Sets the beatmap whose key count drives key-dependent parameter editors
+	///
+	/// May be needed in the future
+	/// </summary>
+	public void SetCurrentBeatmap(OsuFile? osuFile)
+	{
+		_currentBeatmap = osuFile;
+
+		if (_selectedMod != null)
+			PopulateParameterSliders(_selectedMod);
 	}
 
 	/// <summary>
@@ -287,7 +344,7 @@ public partial class ModSelectionPanel : CompositeDrawable
 		_selectedModDescription.Text = "Select a mod from the list above to apply it.";
 		_applyButton.Enabled = false;
 
-		// Clear parameter sliders
+		// Clear parameter controls
 		_parametersContainer.Clear();
 		_parameterSliders.Clear();
 	}
