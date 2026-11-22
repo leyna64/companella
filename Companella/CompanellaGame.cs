@@ -12,6 +12,7 @@ using Companella.Services.Database;
 using Companella.Services.Platform;
 using Companella.Services.Session;
 using Companella.Services.Tools;
+using ManagedBass;
 using osu.Framework;
 using osu.Framework.Allocation;
 using osu.Framework.Configuration;
@@ -238,7 +239,14 @@ public partial class CompanellaGame : Game
 		// Under Wine, DXVK's presenter busy-waits a whole core while this window sits behind osu!, unless presents
 		// are vsynced (measured: Limit2x ~120% of a core, VSync ~25%)
 		if (RunningUnderWine())
+		{
 			frameworkConfig.SetValue(FrameworkSetting.FrameSync, FrameSync.VSync);
+
+			// Companella! plays no sound, but osu!framework keeps BASS output running (DeviceNonStop), which under Wine
+			// keeps two audio threads waking ~1,000 times a second: pause the output whenever a device starts
+			Audio.OnNewDevice += _ => PauseAudioOutput();
+			PauseAudioOutput();
+		}
 
 		// Add embedded resources using AssemblyResourceStore which properly handles manifest names
 		var assembly = typeof(CompanellaGame).Assembly;
@@ -1622,6 +1630,22 @@ public partial class CompanellaGame : Game
 
 	private static bool RunningUnderWine() =>
 		NativeLibrary.TryLoad("ntdll.dll", out var ntdll) && NativeLibrary.TryGetExport(ntdll, "wine_get_version", out _);
+
+	// BASS selects devices per thread: pause each device osu!framework initialised, then restore this thread's device
+	private static void PauseAudioOutput()
+	{
+		var previous = Bass.CurrentDevice;
+
+		for (var device = 1; device < Bass.DeviceCount; device++)
+			if (Bass.GetDeviceInfo(device, out var info) && info.IsInitialized)
+			{
+				Bass.CurrentDevice = device;
+				Bass.Pause();
+			}
+
+		if (previous >= 0)
+			Bass.CurrentDevice = previous;
+	}
 
 	protected override void Update()
 	{
