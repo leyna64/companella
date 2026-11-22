@@ -329,7 +329,7 @@ public partial class CompanellaGame : Game
 		{
 			await _userSettingsService.InitializeAsync();
 			_processDetector.SetSettingsService(_userSettingsService);
-			_replayFileWatcherService.StartWatching();
+			// CheckOsuProcessStatus starts the replay watcher; starting it here as well raced it into two watchers
 			_replayFileWatcherService.CheckForMissingReplays();
 			await _danConfigService.InitializeAsync();
 

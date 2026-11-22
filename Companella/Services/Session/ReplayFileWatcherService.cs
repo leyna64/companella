@@ -164,7 +164,7 @@ public class ReplayFileWatcherService : IDisposable
 			else ProcessReplayFile(pending.Key);
 		}
 
-		foreach (var folder in _watchedFolders)
+		foreach (var folder in _watchedFolders.ToArray()) // StopWatching may clear the list meanwhile
 			try
 			{
 				if (!Directory.Exists(folder))
@@ -188,6 +188,9 @@ public class ReplayFileWatcherService : IDisposable
 					var isNew = false;
 					lock (_lockObj)
 					{
+						if (!_isWatching)
+							return;
+
 						if (!_knownFiles.TryGetValue(file, out var knownTime))
 						{
 							// New file
@@ -245,6 +248,9 @@ public class ReplayFileWatcherService : IDisposable
 
 		lock (_lockObj)
 		{
+			// A poll already running checks this before treating a file as new: the known files are cleared below
+			_isWatching = false;
+
 			foreach (var watcher in _watchers)
 			{
 				watcher.EnableRaisingEvents = false;
@@ -256,7 +262,6 @@ public class ReplayFileWatcherService : IDisposable
 			_knownFiles.Clear();
 		}
 
-		_isWatching = false;
 		Logger.Info("[ReplayWatcher] Stopped watching");
 	}
 
