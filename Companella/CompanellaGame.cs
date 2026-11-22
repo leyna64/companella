@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Companella.Analyzers.Attributes;
 using Companella.Components.Layout;
 using Companella.Components.Misc;
@@ -13,6 +14,7 @@ using Companella.Services.Session;
 using Companella.Services.Tools;
 using osu.Framework;
 using osu.Framework.Allocation;
+using osu.Framework.Configuration;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Cursor;
 using osu.Framework.Input.Events;
@@ -231,8 +233,13 @@ public partial class CompanellaGame : Game
 	}
 
 	[BackgroundDependencyLoader]
-	private void load()
+	private void load(FrameworkConfigManager frameworkConfig)
 	{
+		// Under Wine, DXVK's presenter busy-waits a whole core while this window sits behind osu!, unless presents
+		// are vsynced (measured: Limit2x ~120% of a core, VSync ~25%)
+		if (RunningUnderWine())
+			frameworkConfig.SetValue(FrameworkSetting.FrameSync, FrameSync.VSync);
+
 		// Add embedded resources using AssemblyResourceStore which properly handles manifest names
 		var assembly = typeof(CompanellaGame).Assembly;
 		var assemblyStore = new AssemblyResourceStore(assembly, "Companella");
@@ -1597,6 +1604,9 @@ public partial class CompanellaGame : Game
 
 	[System.Runtime.InteropServices.DllImport("user32.dll")]
 	private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+	private static bool RunningUnderWine() =>
+		NativeLibrary.TryLoad("ntdll.dll", out var ntdll) && NativeLibrary.TryGetExport(ntdll, "wine_get_version", out _);
 
 	protected override void Update()
 	{
