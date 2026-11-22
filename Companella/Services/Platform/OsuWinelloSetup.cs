@@ -14,6 +14,12 @@ public static class OsuWinelloSetup
 	public const string Flag = "--osu-winello";
 
 	/// <summary>
+	/// True when started through osu-wine, which exports WINEPREFIX for its own prefix, even if the setup never ran.
+	/// </summary>
+	public static bool Detected =>
+		Environment.GetEnvironmentVariable("WINEPREFIX")?.TrimEnd('/').EndsWith("/osu-wineprefix", StringComparison.Ordinal) == true;
+
+	/// <summary>
 	/// Writes a Linux launcher script and app menu entry that start osu! (through osu-wine) and then Companella!
 	/// in the same Wine prefix, and enables osu-winello mode in the user settings.
 	/// </summary>

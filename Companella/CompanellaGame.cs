@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Companella.Analyzers.Attributes;
 using Companella.Components.Layout;
 using Companella.Components.Misc;
@@ -11,8 +12,10 @@ using Companella.Services.Database;
 using Companella.Services.Platform;
 using Companella.Services.Session;
 using Companella.Services.Tools;
+using ManagedBass;
 using osu.Framework;
 using osu.Framework.Allocation;
+using osu.Framework.Configuration;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Cursor;
 using osu.Framework.Input.Events;
@@ -41,6 +44,10 @@ public partial class CompanellaGame : Game
 
 	// Settings saving
 	private double _settingsSaveTimer;
+	private double _osuWindowTimer = double.MaxValue;
+
+	// Window and process calls are costly (much more under Wine, where they also stall osu!), so not every frame
+	private const double _osuWindowInterval = 100;
 	private const double _settingsSaveInterval = 2000; // Save every 2 seconds
 	private Size _lastWindowSize;
 	private Point _lastWindowPosition;
@@ -227,8 +234,20 @@ public partial class CompanellaGame : Game
 	}
 
 	[BackgroundDependencyLoader]
-	private void load()
+	private void Load(FrameworkConfigManager frameworkConfig)
 	{
+		// Under Wine, DXVK's presenter busy-waits a whole core while this window sits behind osu!, unless presents
+		// are vsynced (measured: Limit2x ~120% of a core, VSync ~25%)
+		if (RunningUnderWine())
+		{
+			frameworkConfig.SetValue(FrameworkSetting.FrameSync, FrameSync.VSync);
+
+			// Companella! plays no sound, but osu!framework keeps BASS output running (DeviceNonStop), which under Wine
+			// keeps two audio threads waking ~1,000 times a second: pause the output whenever a device starts
+			Audio.OnNewDevice += _ => PauseAudioOutput();
+			PauseAudioOutput();
+		}
+
 		// Add embedded resources using AssemblyResourceStore which properly handles manifest names
 		var assembly = typeof(CompanellaGame).Assembly;
 		var assemblyStore = new AssemblyResourceStore(assembly, "Companella");
@@ -318,7 +337,7 @@ public partial class CompanellaGame : Game
 		{
 			await _userSettingsService.InitializeAsync();
 			_processDetector.SetSettingsService(_userSettingsService);
-			_replayFileWatcherService.StartWatching();
+			// CheckOsuProcessStatus starts the replay watcher; starting it here as well raced it into two watchers
 			_replayFileWatcherService.CheckForMissingReplays();
 			await _danConfigService.InitializeAsync();
 
@@ -1203,12 +1222,25 @@ public partial class CompanellaGame : Game
 		}
 
 		var overlayPos = _overlayService.CalculateOverlayPosition(_currentTargetWidth, _currentTargetHeight);
-		if (overlayPos.HasValue)
-			// Set window to topmost and position it, enforcing size
-			// Include SWP_FRAMECHANGED to ensure transparency is applied
-			SetWindowPos(handle, HWND_TOPMOST, overlayPos.Value.X, overlayPos.Value.Y, _currentTargetWidth,
-				_currentTargetHeight,
-				SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+		if (!overlayPos.HasValue)
+		{
+			return;
+		}
+
+		// Already shown, topmost and in place: SWP_FRAMECHANGED would only repeat a reconfigure and repaint
+		// (an X11 round trip under Wine) ten times a second
+		if (IsWindowVisible(handle) && (GetWindowLong(handle, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0 &&
+			GetWindowRect(handle, out RECT rect) && rect.Left == overlayPos.Value.X && rect.Top == overlayPos.Value.Y &&
+			rect.Right - rect.Left == _currentTargetWidth && rect.Bottom - rect.Top == _currentTargetHeight)
+		{
+			return;
+		}
+
+		// Set window to topmost and position it, enforcing size
+		// Include SWP_FRAMECHANGED to ensure transparency is applied
+		SetWindowPos(handle, HWND_TOPMOST, overlayPos.Value.X, overlayPos.Value.Y, _currentTargetWidth,
+			_currentTargetHeight,
+			SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 	}
 
 	/// <summary>
@@ -1224,7 +1256,8 @@ public partial class CompanellaGame : Game
 			var windowTitle = Window.Title;
 			var handle = WindowHandleHelper.GetCurrentProcessWindowHandle(windowTitle);
 
-			if (handle != IntPtr.Zero)
+			// Called every check while osu! is out of focus; only hide once
+			if (handle != IntPtr.Zero && IsWindowVisible(handle))
 			{
 				// Hide window but keep it topmost (so it appears instantly when osu! regains focus)
 				const int SW_HIDE = 0;
@@ -1389,6 +1422,9 @@ public partial class CompanellaGame : Game
 	private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
 	[System.Runtime.InteropServices.DllImport("user32.dll")]
+	private static extern bool IsWindowVisible(IntPtr hWnd);
+
+	[System.Runtime.InteropServices.DllImport("user32.dll")]
 	private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
 	[System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -1401,6 +1437,8 @@ public partial class CompanellaGame : Game
 	[WinApiContext] private static readonly IntPtr HWND_NOTOPMOST = new(-2);
 
 	[WinApiContext] private const int GWL_STYLE = -16;
+	[WinApiContext] private const int GWL_EXSTYLE = -20;
+	[WinApiContext] private const int WS_EX_TOPMOST = 0x00000008;
 	[WinApiContext] private const int WS_OVERLAPPEDWINDOW = unchecked((int)0x00CF0000);
 	[WinApiContext] private const int WS_POPUP = unchecked((int)0x80000000);
 	[WinApiContext] private const int WS_VISIBLE = unchecked((int)0x10000000);
@@ -1594,18 +1632,52 @@ public partial class CompanellaGame : Game
 	[System.Runtime.InteropServices.DllImport("user32.dll")]
 	private static extern bool SetForegroundWindow(IntPtr hWnd);
 
+	private static bool RunningUnderWine()
+	{
+		return NativeLibrary.TryLoad("ntdll.dll", out IntPtr ntdll) && NativeLibrary.TryGetExport(ntdll, "wine_get_version", out _);
+	}
+
+	// BASS selects devices per thread: pause each device osu!framework initialised, then restore this thread's device
+	private static void PauseAudioOutput()
+	{
+		int previous = Bass.CurrentDevice;
+
+		for (int device = 1; device < Bass.DeviceCount; device++)
+		{
+			if (Bass.GetDeviceInfo(device, out DeviceInfo info) && info.IsInitialized)
+			{
+				Bass.CurrentDevice = device;
+				Bass.Pause();
+			}
+		}
+
+		if (previous >= 0)
+		{
+			Bass.CurrentDevice = previous;
+		}
+	}
+
 	protected override void Update()
 	{
 		base.Update();
 
-		// Check osu! process status and auto-enable/disable overlay mode
-		CheckOsuProcessStatus();
+		_osuWindowTimer += Clock.ElapsedFrameTime;
+		if (_osuWindowTimer >= _osuWindowInterval)
+		{
+			_osuWindowTimer = 0;
 
-		// Update overlay service
-		_overlayService?.Update();
+			// Check osu! process status and auto-enable/disable overlay mode
+			CheckOsuProcessStatus();
 
-		// Update overlay position if in overlay mode
-		if (_overlayService?.IsOverlayMode == true) UpdateOverlayPosition();
+			// Update overlay service
+			_overlayService?.Update();
+
+			// Update overlay position if in overlay mode
+			if (_overlayService?.IsOverlayMode == true)
+			{
+				UpdateOverlayPosition();
+			}
+		}
 
 		// Periodically save window settings and prevent resizing using osu!framework API only
 		if (Window != null)
@@ -1684,7 +1756,7 @@ public partial class CompanellaGame : Game
 
 						// Perform one-time restart after first connection for proper attachment
 						// (skipped under osu-winello: killing osu! ends its Wine session, which also closes Companella!)
-						if (!_hasPerformedStartupRestart && !_userSettingsService.Settings.OsuWinello)
+						if (!_hasPerformedStartupRestart && !_userSettingsService.Settings.OsuWinello && !OsuWinelloSetup.Detected)
 						{
 							PerformFirstConnectionRestart();
 							return; // Exit early, we'll re-detect after restart
@@ -1710,7 +1782,8 @@ public partial class CompanellaGame : Game
 		{
 			// Re-attach if needed
 			var osuRect = _overlayService.GetOsuWindowRect();
-			if (!osuRect.HasValue && _overlayService.IsOverlayMode)
+			if (!osuRect.HasValue && _overlayService.IsOverlayMode && !_overlayService.IsAttached)
+			{
 				// Process might have been lost, try to reattach
 				if (_processDetector.TryAttachToOsu())
 				{
@@ -1726,6 +1799,7 @@ public partial class CompanellaGame : Game
 							// Process might be closing, ignore
 						}
 				}
+			}
 		}
 
 		_wasOsuRunning = isOsuRunning;
