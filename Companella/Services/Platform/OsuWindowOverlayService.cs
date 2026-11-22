@@ -50,6 +50,11 @@ public class OsuWindowOverlayService : IDisposable
 	public event EventHandler<bool>? OverlayModeChangeRequested;
 
 	/// <summary>
+	/// Whether an osu! process is attached and still running.
+	/// </summary>
+	public bool IsAttached => _osuProcess is { HasExited: false };
+
+	/// <summary>
 	/// Whether overlay mode is currently enabled.
 	/// </summary>
 	public bool IsOverlayMode
@@ -114,6 +119,13 @@ public class OsuWindowOverlayService : IDisposable
 		try
 		{
 			var hWnd = _osuProcess.MainWindowHandle;
+			if (hWnd == IntPtr.Zero || !IsWindow(hWnd))
+			{
+				// Process caches MainWindowHandle: attached while osu! was starting, it stays zero until refreshed
+				_osuProcess.Refresh();
+				hWnd = _osuProcess.MainWindowHandle;
+			}
+
 			if (hWnd == IntPtr.Zero || !IsWindow(hWnd) || !IsWindowVisible(hWnd)) return null;
 
 			if (GetWindowRect(hWnd, out var rect))

@@ -1769,7 +1769,7 @@ public partial class CompanellaGame : Game
 		{
 			// Re-attach if needed
 			var osuRect = _overlayService.GetOsuWindowRect();
-			if (!osuRect.HasValue && _overlayService.IsOverlayMode)
+			if (!osuRect.HasValue && _overlayService.IsOverlayMode && !_overlayService.IsAttached)
 				// Process might have been lost, try to reattach
 				if (_processDetector.TryAttachToOsu())
 				{
