@@ -76,6 +76,11 @@ public class UserSettingsService
 		{
 			_loadError = ex.Message;
 			_settings = new UserSettings();
+			// Keep the unreadable file: the next save writes defaults over settings.json
+			var backup = _settingsPath + ".corrupt";
+			try { File.Copy(_settingsPath, backup, true); }
+			catch (Exception copyEx) { backup = $"not kept ({copyEx.Message})"; }
+			Logger.Warn($"[Settings] Could not read {_settingsPath}, using defaults: {ex.Message}. Old file: {backup}");
 		}
 	}
 
