@@ -88,7 +88,10 @@ public class UserSettingsService
 		try
 		{
 			var json = JsonSerializer.Serialize(_settings, _jsonOptions);
-			await File.WriteAllTextAsync(_settingsPath, json);
+			// Under osu-winello, closing osu! kills Companella! mid-save: write a temp file, then swap it in so settings.json is never truncated
+			string tempPath = _settingsPath + ".tmp";
+			await File.WriteAllTextAsync(tempPath, json);
+			File.Move(tempPath, _settingsPath, true);
 		}
 		catch (Exception ex)
 		{
