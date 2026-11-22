@@ -234,7 +234,7 @@ public partial class CompanellaGame : Game
 	}
 
 	[BackgroundDependencyLoader]
-	private void load(FrameworkConfigManager frameworkConfig)
+	private void Load(FrameworkConfigManager frameworkConfig)
 	{
 		// Under Wine, DXVK's presenter busy-waits a whole core while this window sits behind osu!, unless presents
 		// are vsynced (measured: Limit2x ~120% of a core, VSync ~25%)
@@ -1223,14 +1223,18 @@ public partial class CompanellaGame : Game
 
 		var overlayPos = _overlayService.CalculateOverlayPosition(_currentTargetWidth, _currentTargetHeight);
 		if (!overlayPos.HasValue)
+		{
 			return;
+		}
 
 		// Already shown, topmost and in place: SWP_FRAMECHANGED would only repeat a reconfigure and repaint
 		// (an X11 round trip under Wine) ten times a second
 		if (IsWindowVisible(handle) && (GetWindowLong(handle, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0 &&
-			GetWindowRect(handle, out var rect) && rect.Left == overlayPos.Value.X && rect.Top == overlayPos.Value.Y &&
+			GetWindowRect(handle, out RECT rect) && rect.Left == overlayPos.Value.X && rect.Top == overlayPos.Value.Y &&
 			rect.Right - rect.Left == _currentTargetWidth && rect.Bottom - rect.Top == _currentTargetHeight)
+		{
 			return;
+		}
 
 		// Set window to topmost and position it, enforcing size
 		// Include SWP_FRAMECHANGED to ensure transparency is applied
@@ -1628,23 +1632,29 @@ public partial class CompanellaGame : Game
 	[System.Runtime.InteropServices.DllImport("user32.dll")]
 	private static extern bool SetForegroundWindow(IntPtr hWnd);
 
-	private static bool RunningUnderWine() =>
-		NativeLibrary.TryLoad("ntdll.dll", out var ntdll) && NativeLibrary.TryGetExport(ntdll, "wine_get_version", out _);
+	private static bool RunningUnderWine()
+	{
+		return NativeLibrary.TryLoad("ntdll.dll", out IntPtr ntdll) && NativeLibrary.TryGetExport(ntdll, "wine_get_version", out _);
+	}
 
 	// BASS selects devices per thread: pause each device osu!framework initialised, then restore this thread's device
 	private static void PauseAudioOutput()
 	{
-		var previous = Bass.CurrentDevice;
+		int previous = Bass.CurrentDevice;
 
-		for (var device = 1; device < Bass.DeviceCount; device++)
-			if (Bass.GetDeviceInfo(device, out var info) && info.IsInitialized)
+		for (int device = 1; device < Bass.DeviceCount; device++)
+		{
+			if (Bass.GetDeviceInfo(device, out DeviceInfo info) && info.IsInitialized)
 			{
 				Bass.CurrentDevice = device;
 				Bass.Pause();
 			}
+		}
 
 		if (previous >= 0)
+		{
 			Bass.CurrentDevice = previous;
+		}
 	}
 
 	protected override void Update()
@@ -1663,7 +1673,10 @@ public partial class CompanellaGame : Game
 			_overlayService?.Update();
 
 			// Update overlay position if in overlay mode
-			if (_overlayService?.IsOverlayMode == true) UpdateOverlayPosition();
+			if (_overlayService?.IsOverlayMode == true)
+			{
+				UpdateOverlayPosition();
+			}
 		}
 
 		// Periodically save window settings and prevent resizing using osu!framework API only
@@ -1770,6 +1783,7 @@ public partial class CompanellaGame : Game
 			// Re-attach if needed
 			var osuRect = _overlayService.GetOsuWindowRect();
 			if (!osuRect.HasValue && _overlayService.IsOverlayMode && !_overlayService.IsAttached)
+			{
 				// Process might have been lost, try to reattach
 				if (_processDetector.TryAttachToOsu())
 				{
@@ -1785,6 +1799,7 @@ public partial class CompanellaGame : Game
 							// Process might be closing, ignore
 						}
 				}
+			}
 		}
 
 		_wasOsuRunning = isOsuRunning;

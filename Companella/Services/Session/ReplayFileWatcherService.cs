@@ -32,7 +32,7 @@ public class ReplayFileWatcherService : IDisposable
 	private readonly Dictionary<string, DateTime> _knownFiles = new();
 
 	// Folder write time at the last poll: a new or renamed replay changes it, so an unchanged folder is skipped
-	private readonly Dictionary<string, DateTime> _folderWriteTimes = new();
+	private readonly Dictionary<string, DateTime> _folderWriteTimes = [];
 	private System.Threading.Timer? _pollingTimer;
 	private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(3);
 	private List<string> _watchedFolders = new();
@@ -164,7 +164,8 @@ public class ReplayFileWatcherService : IDisposable
 			else ProcessReplayFile(pending.Key);
 		}
 
-		foreach (var folder in _watchedFolders.ToArray()) // StopWatching may clear the list meanwhile
+		foreach (string folder in _watchedFolders.ToArray()) // StopWatching may clear the list meanwhile
+		{
 			try
 			{
 				if (!Directory.Exists(folder))
@@ -172,11 +173,13 @@ public class ReplayFileWatcherService : IDisposable
 
 				// Data/r can hold tens of thousands of replays: listing and stat-ing them all every 3 s costs a core
 				// under Wine. Read the folder's time before listing, so a file added meanwhile is seen next poll.
-				var folderTime = Directory.GetLastWriteTimeUtc(folder);
+				DateTime folderTime = Directory.GetLastWriteTimeUtc(folder);
 				lock (_lockObj)
 				{
-					if (_folderWriteTimes.TryGetValue(folder, out var seen) && seen == folderTime)
+					if (_folderWriteTimes.TryGetValue(folder, out DateTime seen) && seen == folderTime)
+					{
 						continue;
+					}
 					_folderWriteTimes[folder] = folderTime;
 				}
 
@@ -189,7 +192,9 @@ public class ReplayFileWatcherService : IDisposable
 					lock (_lockObj)
 					{
 						if (!_isWatching)
+						{
 							return;
+						}
 
 						if (!_knownFiles.TryGetValue(file, out var knownTime))
 						{
@@ -232,6 +237,7 @@ public class ReplayFileWatcherService : IDisposable
 			{
 				Logger.Info($"[ReplayWatcher] Poll error in {folder}: {ex.Message}");
 			}
+		}
 	}
 
 	/// <summary>
