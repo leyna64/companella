@@ -76,6 +76,7 @@ public class UserSettingsService
 		{
 			_loadError = ex.Message;
 			_settings = new UserSettings();
+			Logger.Warn($"[Settings] Could not read {_settingsPath}, using defaults: {ex.Message}");
 		}
 	}
 
