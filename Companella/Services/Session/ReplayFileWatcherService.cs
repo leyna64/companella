@@ -30,6 +30,9 @@ public class ReplayFileWatcherService : IDisposable
 
 	// Polling fallback - tracks known files and their write times
 	private readonly Dictionary<string, DateTime> _knownFiles = new();
+
+	// Folder write time at the last poll: a new or renamed replay changes it, so an unchanged folder is skipped
+	private readonly Dictionary<string, DateTime> _folderWriteTimes = new();
 	private System.Threading.Timer? _pollingTimer;
 	private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(3);
 	private List<string> _watchedFolders = new();
@@ -127,10 +130,12 @@ public class ReplayFileWatcherService : IDisposable
 		lock (_lockObj)
 		{
 			_knownFiles.Clear();
+			_folderWriteTimes.Clear();
 
 			foreach (var folder in _watchedFolders)
 				try
 				{
+					_folderWriteTimes[folder] = Directory.GetLastWriteTimeUtc(folder);
 					foreach (var file in Directory.GetFiles(folder, "*.osr"))
 					{
 						var info = new FileInfo(file);
@@ -164,6 +169,16 @@ public class ReplayFileWatcherService : IDisposable
 			{
 				if (!Directory.Exists(folder))
 					continue;
+
+				// Data/r can hold tens of thousands of replays: listing and stat-ing them all every 3 s costs a core
+				// under Wine. Read the folder's time before listing, so a file added meanwhile is seen next poll.
+				var folderTime = Directory.GetLastWriteTimeUtc(folder);
+				lock (_lockObj)
+				{
+					if (_folderWriteTimes.TryGetValue(folder, out var seen) && seen == folderTime)
+						continue;
+					_folderWriteTimes[folder] = folderTime;
+				}
 
 				foreach (var file in Directory.GetFiles(folder, "*.osr"))
 				{
