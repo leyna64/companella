@@ -1214,12 +1214,21 @@ public partial class CompanellaGame : Game
 		}
 
 		var overlayPos = _overlayService.CalculateOverlayPosition(_currentTargetWidth, _currentTargetHeight);
-		if (overlayPos.HasValue)
-			// Set window to topmost and position it, enforcing size
-			// Include SWP_FRAMECHANGED to ensure transparency is applied
-			SetWindowPos(handle, HWND_TOPMOST, overlayPos.Value.X, overlayPos.Value.Y, _currentTargetWidth,
-				_currentTargetHeight,
-				SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+		if (!overlayPos.HasValue)
+			return;
+
+		// Already shown, topmost and in place: SWP_FRAMECHANGED would only repeat a reconfigure and repaint
+		// (an X11 round trip under Wine) ten times a second
+		if (IsWindowVisible(handle) && (GetWindowLong(handle, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0 &&
+			GetWindowRect(handle, out var rect) && rect.Left == overlayPos.Value.X && rect.Top == overlayPos.Value.Y &&
+			rect.Right - rect.Left == _currentTargetWidth && rect.Bottom - rect.Top == _currentTargetHeight)
+			return;
+
+		// Set window to topmost and position it, enforcing size
+		// Include SWP_FRAMECHANGED to ensure transparency is applied
+		SetWindowPos(handle, HWND_TOPMOST, overlayPos.Value.X, overlayPos.Value.Y, _currentTargetWidth,
+			_currentTargetHeight,
+			SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 	}
 
 	/// <summary>
@@ -1235,7 +1244,8 @@ public partial class CompanellaGame : Game
 			var windowTitle = Window.Title;
 			var handle = WindowHandleHelper.GetCurrentProcessWindowHandle(windowTitle);
 
-			if (handle != IntPtr.Zero)
+			// Called every check while osu! is out of focus; only hide once
+			if (handle != IntPtr.Zero && IsWindowVisible(handle))
 			{
 				// Hide window but keep it topmost (so it appears instantly when osu! regains focus)
 				const int SW_HIDE = 0;
@@ -1400,6 +1410,9 @@ public partial class CompanellaGame : Game
 	private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
 	[System.Runtime.InteropServices.DllImport("user32.dll")]
+	private static extern bool IsWindowVisible(IntPtr hWnd);
+
+	[System.Runtime.InteropServices.DllImport("user32.dll")]
 	private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
 	[System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -1412,6 +1425,8 @@ public partial class CompanellaGame : Game
 	[WinApiContext] private static readonly IntPtr HWND_NOTOPMOST = new(-2);
 
 	[WinApiContext] private const int GWL_STYLE = -16;
+	[WinApiContext] private const int GWL_EXSTYLE = -20;
+	[WinApiContext] private const int WS_EX_TOPMOST = 0x00000008;
 	[WinApiContext] private const int WS_OVERLAPPEDWINDOW = unchecked((int)0x00CF0000);
 	[WinApiContext] private const int WS_POPUP = unchecked((int)0x80000000);
 	[WinApiContext] private const int WS_VISIBLE = unchecked((int)0x10000000);
