@@ -41,6 +41,10 @@ public partial class CompanellaGame : Game
 
 	// Settings saving
 	private double _settingsSaveTimer;
+	private double _osuWindowTimer = double.MaxValue;
+
+	// Window and process calls are costly (much more under Wine, where they also stall osu!), so not every frame
+	private const double _osuWindowInterval = 100;
 	private const double _settingsSaveInterval = 2000; // Save every 2 seconds
 	private Size _lastWindowSize;
 	private Point _lastWindowPosition;
@@ -1598,14 +1602,20 @@ public partial class CompanellaGame : Game
 	{
 		base.Update();
 
-		// Check osu! process status and auto-enable/disable overlay mode
-		CheckOsuProcessStatus();
+		_osuWindowTimer += Clock.ElapsedFrameTime;
+		if (_osuWindowTimer >= _osuWindowInterval)
+		{
+			_osuWindowTimer = 0;
 
-		// Update overlay service
-		_overlayService?.Update();
+			// Check osu! process status and auto-enable/disable overlay mode
+			CheckOsuProcessStatus();
 
-		// Update overlay position if in overlay mode
-		if (_overlayService?.IsOverlayMode == true) UpdateOverlayPosition();
+			// Update overlay service
+			_overlayService?.Update();
+
+			// Update overlay position if in overlay mode
+			if (_overlayService?.IsOverlayMode == true) UpdateOverlayPosition();
+		}
 
 		// Periodically save window settings and prevent resizing using osu!framework API only
 		if (Window != null)
@@ -1684,7 +1694,7 @@ public partial class CompanellaGame : Game
 
 						// Perform one-time restart after first connection for proper attachment
 						// (skipped under osu-winello: killing osu! ends its Wine session, which also closes Companella!)
-						if (!_hasPerformedStartupRestart && !_userSettingsService.Settings.OsuWinello)
+						if (!_hasPerformedStartupRestart && !_userSettingsService.Settings.OsuWinello && !OsuWinelloSetup.Detected)
 						{
 							PerformFirstConnectionRestart();
 							return; // Exit early, we'll re-detect after restart
